@@ -117,13 +117,11 @@ def comparison_writer(comp_dict, file_out):
 	write_file.close()
 
 print "gathering hybrid contigs...".upper()
-#hyb_file = open(args.hybrid_pileup, "r")
 hyb_contig_dict = pileup_scanner(args.hybrid_pileup)
 contig_report(hyb_contig_dict)
 
 print
 print "gathering parent contigs...".upper()
-#par_file = open(args.parent_pileup, "r")
 par_contig_dict = pileup_scanner(args.parent_pileup)
 contig_report(par_contig_dict)
 
