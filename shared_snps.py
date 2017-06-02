@@ -97,6 +97,9 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 				if (hyb_var == par_var and hybrid_dict[contig]['position_dict'][parent_pos]['ref_base'] == parent_dict[contig]['position_dict'][parent_pos]['ref_base']):
 					#if the site has the same variant in hybrid and parent, record it as parent-derived
 					comparison_dict[contig].append([parent_pos, 1])
+				elif par_var == parent_dict[contig]['position_dict'][parent_pos]['ref_base']:
+					#if the site isn't actually variable in the parent, ignore it
+					pass					
 				elif hybrid_dict[contig]['position_dict'][parent_pos]['ref_base'] !=  parent_dict[contig]['position_dict'][parent_pos]['ref_base']:
 					# If this happens... something, somewhere has gone terribly wrong x_x
 					print "WARNING: reference sequences disagree on contig %s, position %s !!!" % tuple([contig, parent_pos])
