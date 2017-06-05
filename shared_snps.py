@@ -6,6 +6,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("hybrid_pileup", help="pileup file for hybrid")
 parser.add_argument("parent_pileup", help="pileup file for parent")
 parser.add_argument("output", help="file to write shared SNPs to")
+parser.add_argument("-v", "--verbose", help="verbose reporting")
 args = parser.parse_args()
 
 indel_regex = re.compile('[\+\-][0-9]+[ACGTNacgtn]+')
@@ -60,7 +61,7 @@ def pileup_scanner(file_in):
 			contig_dict[contig]['mm_count'] += 1  # increment mismatch count
 			contig_dict[contig]['position_dict'][int(position)] = {'ref_base':upper(ref_base), 'pileup_cov':int(coverage), 'base_dict':read_base_dict} 
 
-		if int(position) % 1000 == 0:
+		if int(position) % 1000 == 0 and args.verbose:
 			print "Contig %s: %s KiloBases scanned!" % tuple([contig, int(position)/1000])
 
 	mpile_file.close()
@@ -72,7 +73,7 @@ def contig_report(contig_dict):
 			mismatch_warn_string = '.'
 		else:
 			mismatch_warn_string = ' (only Ns in the pileup reference base column?)'
-		print "contig %s had an average coverage of %s and a raw mismatch count of %s%s" % tuple([contig, contig_dict[contig]['sum_coverage']/contig_dict[contig]['mini_counter'],  contig_dict[contig]['mm_count'], mismatch_warn_string])
+		print "contig %s had an average coverage depth of %s reads and a raw mismatch count of %s%s" % tuple([contig, contig_dict[contig]['sum_coverage']/contig_dict[contig]['mini_counter'],  contig_dict[contig]['mm_count'], mismatch_warn_string])
 
 
 def mismatch_chooser(site_dict):
@@ -111,7 +112,7 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 			else: 
 			# 	If the parent variant site isn't variant in the hybrid, the hybrid site isn't parent-derived.
 				comparison_dict[contig].append([parent_pos, 0])
-			if minicount % 10000 == 0 :
+			if minicount % 10000 == 0 and args.verbose:
 				print "%s parent mismatch sites investigated!" % tuple([minicount])
 		print "Contig %s of %s compared..." % tuple([shared_contig_list.index(contig), len(shared_contig_list)])
 		print
