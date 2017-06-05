@@ -89,7 +89,9 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 	shared_contig_list = list(set(hybrid_dict.keys()).intersection(set(parent_dict.keys())))
 	comparison_dict = dict.fromkeys(shared_contig_list, [])
 	for contig in shared_contig_list:
+		minicount = 0
 		for parent_pos in parent_dict[contig]['position_dict'].keys():
+			minicount += 1
 			if parent_pos in hybrid_dict[contig]['position_dict'].keys():
 				# 	If the parent variant site is variant in the hybrid...
 				hyb_var, hyb_meta = mismatch_chooser(hybrid_dict[contig]['position_dict'][parent_pos])
@@ -109,6 +111,10 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 			else: 
 			# 	If the parent variant site isn't variant in the hybrid, the hybrid site isn't parent-derived.
 				comparison_dict[contig].append([parent_pos, 0])
+			if minicount % 10000 == 0 :
+				print "%s parent mismatch sites investigated!" % tuple([minicount])
+		print "Contig %s of %s compared..." % tuple([shared_contig_list.index(contig), len(shared_contig_list)])
+		print
 	return comparison_dict
 
 def comparison_writer(comp_dict, file_out):
