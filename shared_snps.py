@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("hybrid_pileup", help="pileup file for hybrid")
 parser.add_argument("parent_pileup", help="pileup file for parent")
 parser.add_argument("output", help="file to write shared SNPs to")
-parser.add_argument("-v", "--verbose", help="verbose reporting")
+parser.add_argument("-v", "--verbose", action="store_true", help="verbose reporting")
 args = parser.parse_args()
 
 indel_regex = re.compile('[\+\-][0-9]+[ACGTNacgtn]+')
@@ -113,7 +113,7 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 			# 	If the parent variant site isn't variant in the hybrid, the hybrid site isn't parent-derived.
 				comparison_dict[contig].append([parent_pos, 0])
 			if minicount % 10000 == 0 and args.verbose:
-				print "%s parent mismatch sites investigated!" % tuple([minicount])
+				print "%s parent mismatch sites investigated of %s!" % tuple([minicount, len(parent_dict[contig]['position_dict'].keys())])
 		print "Contig %s of %s compared..." % tuple([shared_contig_list.index(contig), len(shared_contig_list)])
 		print
 	return comparison_dict
