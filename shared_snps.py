@@ -100,7 +100,7 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 				hybrid_minidict = hybrid_dict[contig]['position_dict'][parent_pos]
 				hyb_var, hyb_meta = mismatch_chooser(hybrid_minidict)
 				par_var, par_meta = mismatch_chooser(parent_minidict)
-				if hybrid_minidict[parent_pos]['ref_base'] !=  parent_minidict['ref_base']:
+				if hybrid_minidict['ref_base'] !=  parent_minidict['ref_base']:
 					# If this happens... something, somewhere has gone terribly wrong x_x
 					print "WARNING: reference sequences disagree on contig %s, position %s !!!" % tuple([contig, parent_pos])
 				elif par_var == parent_minidict['ref_base']:
