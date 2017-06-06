@@ -93,19 +93,22 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 		minicount = 0
 		for parent_pos in parent_dict[contig]['position_dict'].keys():
 			minicount += 1
+			total_count = len(parent_dict[contig]['position_dict'].keys())
 			if parent_pos in hybrid_dict[contig]['position_dict'].keys():
 				# 	If the parent variant site is variant in the hybrid...
-				hyb_var, hyb_meta = mismatch_chooser(hybrid_dict[contig]['position_dict'][parent_pos])
-				par_var, par_meta = mismatch_chooser(parent_dict[contig]['position_dict'][parent_pos])
-				if (hyb_var == par_var and hybrid_dict[contig]['position_dict'][parent_pos]['ref_base'] == parent_dict[contig]['position_dict'][parent_pos]['ref_base']):
-					#if the site has the same variant in hybrid and parent, record it as parent-derived
-					comparison_dict[contig].append([parent_pos, 1])
-				elif par_var == parent_dict[contig]['position_dict'][parent_pos]['ref_base']:
-					#if the site isn't actually variable in the parent, ignore it
-					pass					
-				elif hybrid_dict[contig]['position_dict'][parent_pos]['ref_base'] !=  parent_dict[contig]['position_dict'][parent_pos]['ref_base']:
+				parent_minidict = parent_dict[contig]['position_dict'][parent_pos]
+				hybrid_minidict = hybrid_dict[contig]['position_dict'][parent_pos]
+				hyb_var, hyb_meta = mismatch_chooser(hybrid_minidict)
+				par_var, par_meta = mismatch_chooser(parent_minidict)
+				if hybrid_minidict[parent_pos]['ref_base'] !=  parent_minidict['ref_base']:
 					# If this happens... something, somewhere has gone terribly wrong x_x
 					print "WARNING: reference sequences disagree on contig %s, position %s !!!" % tuple([contig, parent_pos])
+				elif par_var == parent_minidict['ref_base']:
+					#if the site isn't actually variable in the parent, ignore it
+					pass					
+				elif (hyb_var == par_var and hybrid_minidict['ref_base'] == parent_minidict['ref_base']):
+					#if the site has the same variant in hybrid and parent, record it as parent-derived
+					comparison_dict[contig].append([parent_pos, 1])
 				else:
 					#if the parent site is the wrong variant in the hybrid, it's not parent-derived
 					comparison_dict[contig].append([parent_pos, 0])
@@ -113,7 +116,7 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 			# 	If the parent variant site isn't variant in the hybrid, the hybrid site isn't parent-derived.
 				comparison_dict[contig].append([parent_pos, 0])
 			if minicount % 10000 == 0 and args.verbose:
-				print "%s parent mismatch sites investigated of %s!" % tuple([minicount, len(parent_dict[contig]['position_dict'].keys())])
+				print "%s parent mismatch sites investigated of %s!" % tuple([minicount, total_count])
 		print "Contig %s of %s compared..." % tuple([shared_contig_list.index(contig), len(shared_contig_list)])
 		print
 	return comparison_dict
@@ -134,7 +137,6 @@ print
 print "gathering parent contigs...".upper()
 par_contig_dict = pileup_scanner(args.parent_pileup)
 contig_report(par_contig_dict)
-
 
 print
 print "comparing parent and offspring...".upper()
