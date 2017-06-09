@@ -106,7 +106,7 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 				elif par_var == parent_minidict['ref_base']:
 					#if the site isn't actually variable in the parent, ignore it
 					pass					
-				elif (hyb_var == par_var and hybrid_minidict['ref_base'] == parent_minidict['ref_base']):
+				elif hyb_var == par_var:
 					#if the site has the same variant in hybrid and parent, record it as parent-derived
 					comparison_dict[contig].append([parent_pos, 1])
 				else:
