@@ -7,8 +7,8 @@ from random import randint, choice
 parser = argparse.ArgumentParser()
 parser.add_argument("parent1", help="first parent")
 parser.add_argument("parent2", help="second parent")
-parser.add_argument("hybrid", help="hybrid out")
-parser.add_argument("collage", help="BED file of hybrid ancestry")
+parser.add_argument("hybrid_fasta", help="hybrid FASTA out")
+parser.add_argument("collage", help="BED file of hybrid ancestry out")
 args = parser.parse_args()
 
 introg_num = 10
@@ -48,4 +48,4 @@ record=SeqRecord(Seq(nu_chrom),
 print len(nu_chrom)
 print len(p1)
 print len(p2)
-SeqIO.write(record, "hybrid.fasta", "fasta")
+SeqIO.write(record, args.hybrid_fasta, "fasta")
