@@ -25,7 +25,13 @@ while len(snp_sites) > 0:
 	old_start = nu_start
 	nu_start = snp_sites.pop()
 	nukes = ["A","T","C","G"]
-	nukes.remove(std_chrom[nu_start].upper())
+	try:
+		nukes.remove(std_chrom[nu_start].upper())
+	except ValueError:
+		#got one of these; if the nucleotide in the standard chromosome isn't in the replacement list
+		#eg, N
+		#don't worry about it
+		pass
 	nu_chrom = "%s%s%s" % tuple([nu_chrom, std_chrom[old_start:nu_start-1], choice(nukes)])
 nu_chrom = "%s%s" % tuple([nu_chrom, std_chrom[nu_start:]])
 
