@@ -92,13 +92,13 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 	comparison_dict = dict.fromkeys(shared_contig_list, [])
 	for contig in shared_contig_list:
 		minicount = 0
+		total_count = len(parent_dict[contig]['position_dict'].keys())
 		for parent_pos in parent_dict[contig]['position_dict'].keys():
-			minicount += 1
-			total_count = len(parent_dict[contig]['position_dict'].keys())
+			minicount += 1			
 			if parent_pos in hybrid_dict[contig]['position_dict'].keys():
 				# 	If the parent variant site is variant in the hybrid...
-				parent_minidict = parent_dict[contig]['position_dict'][parent_pos]
-				hybrid_minidict = hybrid_dict[contig]['position_dict'][parent_pos]
+				parent_minidict = parent_dict[contig]['position_dict'].pop(parent_pos)
+				hybrid_minidict = hybrid_dict[contig]['position_dict'].pop(parent_pos)
 				hyb_var, hyb_meta = mismatch_chooser(hybrid_minidict)
 				par_var, par_meta = mismatch_chooser(parent_minidict)
 				if hybrid_minidict['ref_base'] !=  parent_minidict['ref_base']:
@@ -116,6 +116,7 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 			else: 
 			# 	If the parent variant site isn't variant in the hybrid, the hybrid site isn't parent-derived.
 				comparison_dict[contig].append([parent_pos, 0])
+				parent_minidict = parent_dict[contig]['position_dict'].pop(parent_pos)
 			if minicount % 10000 == 0 and args.verbose:
 				print "%s parent mismatch sites investigated of %s!" % tuple([minicount, total_count])
 		print "Contig %s of %s compared..." % tuple([shared_contig_list.index(contig), len(shared_contig_list)])
