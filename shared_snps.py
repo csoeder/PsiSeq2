@@ -79,7 +79,8 @@ def contig_report(contig_dict):
 def mismatch_chooser(site_dict):
 	#{'base_dict': {
 	#	'A': 0, 'C': 0, 'T': 0, 'G': 28}, 'ref_base': 'A', 'pileup_cov': 28}}
-	choice = 'N'
+	# choice = 'N'
+	choice = site_dict['ref_base']
 	meta = None # 	We may want to later report information on polymorphism
 	for bass in site_dict['base_dict'].keys():
 		if 	site_dict['base_dict'][bass]/float(site_dict['pileup_cov']) >= 0.9:
