@@ -2,21 +2,20 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from random import randint, choice
-
+import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("reference_genome", help="reference genome to be mutated")
 parser.add_argument("custom_genome", help="output genome, with SNPs added")
-
-parser.add_argument("--mutation_rate", help="SNP rate, per bp; default 1%", type=float )
+parser.add_argument("-m", "--mutation_rate", help="SNP rate, per bp; default 1%% ", type=float, default=0.01 )
 
 args = parser.parse_args()
+
+
+
 fasta_in = args.reference_genome
 fasta_out = args.custom_genome
-if args.mutation_rate == None:
-	mut_rate=0.01 # 	SNP frequency, per bp
-else:
-	mut_rate = args.mutation_rate
+mut_rate = args.mutation_rate
 
 
 
