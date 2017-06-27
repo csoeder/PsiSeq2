@@ -44,7 +44,7 @@ def pileup_scanner(file_in):
 		contig_dict[contig]['sum_coverage'] += int(coverage)
 		if (
 			int(coverage) > 1 and "*" not in read_base and not
-			indel_regex.search(read_base) and upper(ref_base) != "N" and
+			indel_regex.search(read_base) and upper(ref_base) in ['A','T','C','G'] and
 			mismatch_regex.search(read_base)):
 			# if cov >1 and read_base is not an indel and the reference base
 			# is not null and read bases contain mismatches
