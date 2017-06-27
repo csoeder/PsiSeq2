@@ -42,6 +42,7 @@ def pileup_scanner(file_in):
 										('position_dict', {})))
 		contig_dict[contig]['mini_counter'] += 1
 		contig_dict[contig]['sum_coverage'] += int(coverage)
+
 		if (
 			int(coverage) > 1 and "*" not in read_base and not
 			indel_regex.search(read_base) and upper(ref_base) in ['A','T','C','G'] and
