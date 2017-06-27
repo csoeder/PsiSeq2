@@ -23,7 +23,7 @@ mut_rate = args.mutation_rate
 
 chroms_out = []
 
-for std_chrom in SeqIO.write(fasta_in, "fasta"):
+for std_chrom in SeqIO.parse(fasta_in, "fasta"):
 
 	std_chrom = std_chrom.seq.tostring()
 
