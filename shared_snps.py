@@ -84,13 +84,13 @@ def mismatch_chooser(site_dict):
 	choice = site_dict['ref_base']
 	meta = None # 	We may want to later report information on polymorphism
 	for bass in site_dict['base_dict'].keys():
-		if 	site_dict['base_dict'][bass]/float(site_dict['pileup_cov']) >= 0.9:
+		if site_dict['base_dict'][bass]/float(site_dict['pileup_cov']) >= 0.9:
 			choice = bass
 	return choice, meta
 
 def contig_dict_comparator(parent_dict, hybrid_dict):
 	shared_contig_list = list(set(hybrid_dict.keys()).intersection(set(parent_dict.keys())))
-	comparison_dict = dict.fromkeys(shared_contig_list, [])
+	comparison_dict = { k : [] for k in shared_contig_list }
 	for contig in shared_contig_list:
 		minicount = 0
 		total_count = len(parent_dict[contig]['position_dict'].keys())
