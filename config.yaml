@@ -1,0 +1,124 @@
+data_sets:
+    - name: SucSec
+      paired: False
+      pedigree: droSec1
+      treatment: parent
+      type: empirical
+    - name: SucSim
+      paired: False
+      pedigree: droSim1
+      treatment: parent
+      type: empirical
+    - name: SynthSec
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: synthetic
+    - name: SynthSim
+      paired: True
+      pedigree: droSim1
+      treatment: parent
+      type: synthetic
+    # - name: C1
+    #   paired: False
+    #   pedigree: offspring
+    #   treatment: control
+    #   type: empirical
+    # - name: C2
+    #   paired: False
+    #   pedigree: offspring
+    #   treatment: control
+    #   type: empirical
+    # - name: PSI1
+    #   paired: False
+    #   pedigree: offspring
+    #   treatment: selection
+    #   type: empirical
+    # - name: PSI2
+    #   paired: False
+    #   pedigree: offspring
+    #   treatment: selection
+    #   type: empirical
+    # - name: PSI3
+    #   paired: False
+    #   pedigree: offspring
+    #   treatment: selection
+    #   type: empirical
+    - name: SRR869587
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: empirical
+    - name: SRR6426002
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: empirical
+    - name: SRR5860570
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: empirical
+    - name: SRR303333
+      paired: False
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+    - name: 10A
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+    - name: 10B
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+    - name: 13A
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+    - name: 13B
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+    - name: 17A
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+    - name: 17B
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+
+
+
+reference_genomes:
+    - name: droSim1
+      species: drosophila simulans
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/droSim1.fa
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/droSim1.fa.fai
+    - name: dsimr2
+      species: drosophila simulans
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/dsim-all-chromosome-r2.02.fasta
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/dsim-all-chromosome-r2.02.fasta.fai
+    - name: droSec1
+      species: drosophila sechellia
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/droSec1.fa
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/droSec1.fa.fai
+    - name: dm6
+      species: drosophila melanogaster
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_melanogaster/dm6.fa
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_melanogaster/dm6.fa.fai
+
+lift_genomes:
+      dm6:
+            droSec1: /proj/cdjones_lab/Genomics_Data_Commons/genomes/LiftOver/droSec1ToDm6.over.chain
+            droSim1: /proj/cdjones_lab/Genomics_Data_Commons/genomes/LiftOver/droSim1ToDm6.over.chain
+
+
+
