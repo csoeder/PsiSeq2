@@ -5,7 +5,7 @@ An update to PSISeq (Earley &amp; Jones 2011)
 # Installation, Dependencies
 
 # Components, Default Structure
-
+```
 ├── .gitignore
 ├── FASTQs/ 
 		a folder containing the sequenced reads to be analyzed
@@ -29,7 +29,7 @@ An update to PSISeq (Earley &amp; Jones 2011)
 │   └── #myenv.yaml
 └── Snakefile
 		pipeline rules and processes
-
+```
 # Use, Default Process
 
 
