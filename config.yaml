@@ -4,98 +4,97 @@ data_sets:
       pedigree: droSec1
       treatment: parent
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
     - name: SucSim
       paired: False
       pedigree: droSim1
       treatment: parent
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
     - name: SynthSec
       paired: True
       pedigree: droSec1
       treatment: parent
       type: synthetic
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
     - name: SynthSim
       paired: True
       pedigree: droSim1
       treatment: parent
       type: synthetic
-    # - name: C1
-    #   paired: False
-    #   pedigree: offspring
-    #   treatment: control
-    #   type: empirical
-    # - name: C2
-    #   paired: False
-    #   pedigree: offspring
-    #   treatment: control
-    #   type: empirical
-    # - name: PSI1
-    #   paired: False
-    #   pedigree: offspring
-    #   treatment: selection
-    #   type: empirical
-    # - name: PSI2
-    #   paired: False
-    #   pedigree: offspring
-    #   treatment: selection
-    #   type: empirical
-    # - name: PSI3
-    #   paired: False
-    #   pedigree: offspring
-    #   treatment: selection
-    #   type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+    - name: SynthSecFB
+      paired: True
+      pedigree: dsecr1
+      treatment: parent
+      type: synthetic
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+    - name: SynthSimFB
+      paired: True
+      pedigree: dsimr2
+      treatment: parent
+      type: synthetic
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
     - name: SRR869587
       paired: True
       pedigree: droSec1
       treatment: parent
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
     - name: SRR6426002
       paired: True
       pedigree: droSec1
       treatment: parent
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
     - name: SRR5860570
       paired: True
       pedigree: droSec1
       treatment: parent
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
     - name: SRR303333
       paired: False
       pedigree: offspring
       treatment: selection
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
     - name: 10A
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
     - name: 10B
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
     - name: 13A
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
     - name: 13B
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
     - name: 17A
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
     - name: 17B
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
-
-
+      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
 
 reference_genomes:
     - name: droSim1
@@ -106,6 +105,10 @@ reference_genomes:
       species: drosophila simulans
       path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/dsim-all-chromosome-r2.02.fasta
       fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/dsim-all-chromosome-r2.02.fasta.fai
+    - name: dsecr1
+      species: drosophila sechellia
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/dsec-all-chromosome-r1.3.fasta
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/dsec-all-chromosome-r1.3.fasta.fai
     - name: droSec1
       species: drosophila sechellia
       path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/droSec1.fa
@@ -119,6 +122,5 @@ lift_genomes:
       dm6:
             droSec1: /proj/cdjones_lab/Genomics_Data_Commons/genomes/LiftOver/droSec1ToDm6.over.chain
             droSim1: /proj/cdjones_lab/Genomics_Data_Commons/genomes/LiftOver/droSim1ToDm6.over.chain
-
 
 
