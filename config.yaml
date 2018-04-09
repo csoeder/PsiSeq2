@@ -4,97 +4,97 @@ data_sets:
       pedigree: droSec1
       treatment: parent
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+      path: FASTQs/parent/SucSec/
     - name: SucSim
       paired: False
       pedigree: droSim1
       treatment: parent
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+      path: FASTQs/parent/SucSim/
     - name: SynthSec
       paired: True
       pedigree: droSec1
       treatment: parent
       type: synthetic
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+      path: FASTQs/parent/SynthSec/
     - name: SynthSim
       paired: True
       pedigree: droSim1
       treatment: parent
       type: synthetic
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+      path: FASTQs/parent/SynthSim/
     - name: SynthSecFB
       paired: True
       pedigree: dsecr1
       treatment: parent
       type: synthetic
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+      path: FASTQs/parent/SynthSecFB/
     - name: SynthSimFB
       paired: True
       pedigree: dsimr2
       treatment: parent
       type: synthetic
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+      path: FASTQs/parent/SynthSimFB/
     - name: SRR869587
       paired: True
       pedigree: droSec1
       treatment: parent
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+      path: PsiSeq2/FASTQs/parent/SRR869587/
     - name: SRR6426002
       paired: True
       pedigree: droSec1
       treatment: parent
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+      path: FASTQs/parent/SRR6426002/
     - name: SRR5860570
       paired: True
       pedigree: droSec1
       treatment: parent
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/parent/
+      path: FASTQs/parent/SRR5860570/
     - name: SRR303333
       paired: False
       pedigree: offspring
       treatment: selection
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
+      path: FASTQs/selection/SRR303333/
     - name: 10A
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
+      path: FASTQs/selection/10A/
     - name: 10B
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
+      path: FASTQs/selection/10B/
     - name: 13A
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
+      path: FASTQs/selection/13A/
     - name: 13B
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
+      path: FASTQs/selection/13B/
     - name: 17A
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
+      path: FASTQs/selection/17A/
     - name: 17B
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
-      path: /proj/cdjones_lab/csoeder/PsiSeq2/FASTQs/selection/
+      path: FASTQs/selection/17B/
 
 reference_genomes:
     - name: droSim1
@@ -123,4 +123,5 @@ lift_genomes:
             droSec1: /proj/cdjones_lab/Genomics_Data_Commons/genomes/LiftOver/droSec1ToDm6.over.chain
             droSim1: /proj/cdjones_lab/Genomics_Data_Commons/genomes/LiftOver/droSim1ToDm6.over.chain
 
+cwd:  /proj/cdjones_lab/csoeder/PsiSeq2
 

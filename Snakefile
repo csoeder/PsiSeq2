@@ -12,13 +12,25 @@ configfile: 'config.yaml'
 sample_by_name = {c['name'] : c for c in config['data_sets']}
 ref_genome_by_name = { g['name'] : g for g in config['reference_genomes']}
 chain_dict_by_destination = config['lift_genomes']
+sea_dubya_dee=config['cwd']
 samps2process = [c['name'] for c in config['data_sets'] if c['pedigree'] == 'offspring' ]
+print(sea_dubya_dee)
 
+# def get_input_files(sample_name, treatment):
+# 	#collect files
+# 	result = []
+# 	directory = 'FASTQs/%s/%s/' % tuple([treatment, sample_name])
+# 	for fname in os.listdir(directory):
+# 		if fname.endswith('.fastq') or fname.endswith('.fq'):
+# 			result.append(os.path.join(directory, fname))
+# 	result = list(sorted(result))
+# 	#sanity chex go here
+# 	return result
 
-def get_input_files(sample_name, treatment):
+def get_input_files(directory):
 	#collect files
 	result = []
-	directory = 'FASTQs/%s/%s/' % tuple([treatment, sample_name])
+	#directory = 'FASTQs/%s/%s/' % tuple([treatment, sample_name])
 	for fname in os.listdir(directory):
 		if fname.endswith('.fastq') or fname.endswith('.fq'):
 			result.append(os.path.join(directory, fname))
@@ -72,51 +84,85 @@ ruleorder: synthetic_reads_pe > synthetic_reads_se
 
 #https://bitbucket.org/snakemake/snakemake/issues/37/add-complex-conditional-file-dependency
 def check_for_reads(wildcards):
+	direc = sample_by_name[wildcards.sample]['path']
 	if sample_by_name[wildcards.sample]['type'] == 'synthetic':
 		if not sample_by_name[wildcards.sample]['paired']:
-			return expand("FASTQs/{treatment}/{sample}/{sample}.fq", sample=[wildcards.sample], treatment=sample_by_name[wildcards.sample]['treatment'] )
+			return expand("{directory}{sample}.fq", directory=[direc], sample=[wildcards.sample], treatment=sample_by_name[wildcards.sample]['treatment'] )
 		else:
-			return expand("FASTQs/{treatment}/{sample}/{sample}_{readnum}.fq", sample=[wildcards.sample], treatment=sample_by_name[wildcards.sample]['treatment'], readnum=[1,2])
-	return get_input_files(wildcards.sample, sample_by_name[wildcards.sample]['treatment'])
+			return expand("{directory}{sample}_{readnum}.fq", directory=[direc], sample=[wildcards.sample], treatment=sample_by_name[wildcards.sample]['treatment'], readnum=[1,2])
+	return get_input_files(direc)
 
 
 rule bwa_sam:
 	output:
-		bam='mapped_reads/{sample}/{sample}_vs_{parent}.sort.bam',
+		bam='mapped_reads/{sample}/{sample}_vs_{parent}.bwa.sort.bam',
 	input:
 		check_for_reads
 	run:
-		read_files = get_input_files(wildcards.sample, sample_by_name[wildcards.sample]['treatment'])
+		read_files = get_input_files(sample_by_name[wildcards.sample]['path'])
 		paired_reads = sample_by_name[wildcards.sample]['paired']
 		ref_genome = ref_genome_by_name[wildcards.parent]['path']		
 		if paired_reads:
 			shell(
-				"sh scripts/bwa_pe.sh mapped_reads/{wildcards.sample}/{wildcards.sample}_vs_{wildcards.parent} {read_files[0]} {read_files[1]} {ref_genome}"
+				"sh scripts/bwa_pe.sh mapped_reads/{wildcards.sample}/{wildcards.sample}_vs_{wildcards.parent}.bwa {read_files[0]} {read_files[1]} {ref_genome}"
 				)
 		else:
 			shell(
-				"sh scripts/bwa_se.sh mapped_reads/{wildcards.sample}/{wildcards.sample}_vs_{wildcards.parent} {read_files[0]} {ref_genome}"
+				"sh scripts/bwa_se.sh mapped_reads/{wildcards.sample}/{wildcards.sample}_vs_{wildcards.parent}.bwa {read_files[0]} {ref_genome}"
 				)
+
+#https://www.biostars.org/p/56246/
+rule bwa_uniqueUpOnIt:
+	output:
+		bam_out='mapped_reads/{sample}/{sample}_vs_{parent}.bwaUniq.sort.bam'
+	input:
+		bam_in='mapped_reads/{sample}/{sample}_vs_{parent}.bwa.sort.bam'
+	params:
+		quality="-q 20 -F 0x0100 -F 0x0200 -F 0x0300 -F 0x04",
+		uniqueness="XT:A:U.*X0:i:1.*X1:i:0"
+	run:
+		ref_genome = ref_genome_by_name[wildcards.parent]['path']	
+		'samtools view {params.quality} {input.bam_in} | grep -E {params.uniqueness} | samtools view -bS -T {ref_genome} - | samtools sort -o {output.bam_out} - '
+#		'samtools view {params.quality} mapped_reads/SucSec/SucSec_vs_droSim1.sort.bam | grep "XT:A:U" | grep  "X0:i:1" | grep "X1:i:0" samtools view -bS -T referenceSequence.fa - > reads.uniqueMap.bam'
+
+
+rule NGM_sam:
+	output:
+		bam_out='mapped_reads/{sample}/{sample}_vs_{parent}.ngm.sort.bam'
+	input:
+		reads=check_for_reads
+	params:
+		strat=1,
+		topn=1
+	run:
+		ref_genome = ref_genome_by_name[wildcards.parent]['path']
+		paired_reads = sample_by_name[wildcards.sample]['paired']
+		sam="%s.sam" % '.'.join(bam_out.rsplit('.')[:-2])
+		if paired_reads:
+			shell('/nas/longleaf/home/csoeder/modules/NextGenMap-0.5.0/bin/ngm-0.5.0/ngm -1 {input.reads[0]} -2 {input.reads[0]} -r {ref_genome} -o {sam} -b -n {params.topn} --no-unal --strata {params.strat}' )
+		else:
+			shell('/nas/longleaf/home/csoeder/modules/NextGenMap-0.5.0/bin/ngm-0.5.0/ngm -q {input.reads[0]}  -r {ref_genome} -o {sam} -b -n {params.topn} --no-unal --strata {params.strat}' )
+		shell('samtools sort -o {output.bam_out} {sam}')
 
 
 rule mpiler:
 	input:
-		sorted_bam='mapped_reads/{sample}/{sample}_vs_{parent}.sort.bam'
+		sorted_bam='mapped_reads/{sample}/{sample}_vs_{parent}.{aligner}.sort.bam'
 	output:
-		mpile='mapped_reads/{sample}/{sample}_vs_{parent}.mpileup'
+		mpile='mapped_reads/{sample}/{sample}_vs_{parent}.{aligner}.mpileup'
 	run:
 		ref_genome = ref_genome_by_name[wildcards.parent]['path']		
 		shell(
-		"samtools mpileup -Bf {ref_genome} mapped_reads/{wildcards.sample}/{wildcards.sample}_vs_{wildcards.parent}.sort.bam > mapped_reads/{wildcards.sample}/{wildcards.sample}_vs_{wildcards.parent}.mpileup"
+		"samtools mpileup -Bf {ref_genome} {input.sorted_bam} > {output.mpile}"
 		)
 
 
 rule shared_snipper:
 	input:
-		offspring_mpile='mapped_reads/{sample}/{sample}_vs_{parent}.mpileup',
-		otherparent_mpile='mapped_reads/{compare}/{compare}_vs_{parent}.mpileup'
+		offspring_mpile='mapped_reads/{sample}/{sample}_vs_{parent}.{aligner}.mpileup',
+		otherparent_mpile='mapped_reads/{compare}/{compare}_vs_{parent}.{aligner}.mpileup'
 	output:
-		shared_snps='variant_comparisons/{sample}_and_{compare}_vs_{parent}.sharedSnps.out'
+		shared_snps='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.sharedSnps.out'
 	params:
 		minCov=5,
 		minFrac=0.9
@@ -125,18 +171,18 @@ rule shared_snipper:
 
 rule out2bed:
 	input:
-		snps_out='variant_comparisons/{sample}_and_{compare}_vs_{parent}.sharedSnps.out'
+		snps_out='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.sharedSnps.out'
 	output:
-		snps_bed='variant_comparisons/{sample}_and_{compare}_vs_{parent}.sharedSnps.bed'
+		snps_bed='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.sharedSnps.bed'
 	shell:
 		'sh scripts/out2bed.sh {input.snps_out} {output.snps_bed}'
 
 rule lifter:
 	input:
-		unlifted='variant_comparisons/{sample}_and_{compare}_vs_{parent}.sharedSnps.bed'
+		unlifted='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.sharedSnps.bed'
 	output:
-		lifted='variant_comparisons/{sample}_and_{compare}_vs_{parent}.lift2{lift_genome}.sharedSnps.bed',
-		too_heavy='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{lift_genome}.sharedSnps.tooHeavy'
+		lifted='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.lift2{lift_genome}.sharedSnps.bed',
+		too_heavy='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.{lift_genome}.sharedSnps.tooHeavy'
 	run:
 		chain = chain_dict_by_destination[wildcards.lift_genome][wildcards.parent]
 		shell(
@@ -153,9 +199,9 @@ ruleorder: lifter > out2bed
 
 rule heavy2bed:
 	input:
-		heavy='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{lift_genome}.sharedSnps.tooHeavy'
+		heavy='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.{lift_genome}.sharedSnps.tooHeavy'
 	output:
-		heavyBed='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{lift_genome}.sharedSnps.tooHeavy.bed'
+		heavyBed='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.{lift_genome}.sharedSnps.tooHeavy.bed' 
 	shell:
 		"cat {input.heavy} |  grep -v '#' > {output.heavyBed}"
 
