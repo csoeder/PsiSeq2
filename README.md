@@ -15,7 +15,7 @@ outputs:
 	Analysis based on variant-callers?
 	R markdown summary
 
-
+snakemake --restart-times 6 --latency-wait 60 --jobs 24 -p --cluster "sbatch --time=24:00:00 -n 4 --mem=32G "
 
 
 # Installation, Dependencies
@@ -29,16 +29,23 @@ picard
 vcftools
 bedops
 UCSC LiftOver
+freebayes
+R with markdown dependencies
+
 
 # Components, Default Structure
 ```
 ├── .gitignore
+├── Build_PsiSeq2_Results.snakefile 
+		Rules file
 ├── FASTQs/ 
 		a folder containing the sequenced reads to be analyzed
 ├── README.md
 ├── #LICENSE.md
-├── config.yaml
-		snakemake config file, used to define pipeline parameters
+├── PsiSeq2.yaml
+		snakemake config file for standard PsiSeq2 analysis
+├── PsiSeq2.noRich.yaml
+		snakemake config file for standard PsiSeq2 analysis, without Rich's data
 ├── scripts/
 │   ├── bwa_pe.sh
 			paired-end BWA aligner script
@@ -58,6 +65,14 @@ UCSC LiftOver
 		pipeline rules and processes
 ```
 # Use, Default Process
+
+Analysis of simulans/sechellia introgression, including Rich's sugarflies:
+
+```
+snakemake --snakefile Build_PsiSeq2_Results.snakefile --config PsiSeq2.yaml -p PsiSeq2.pdf 
+```
+
+
 
 * crossover simulation as a default use case example/proof of concept
 	* also demonstrates further utility for the crossover/gene conversion applications?

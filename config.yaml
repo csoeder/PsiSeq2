@@ -40,7 +40,7 @@ data_sets:
       pedigree: droSec1
       treatment: parent
       type: empirical
-      path: PsiSeq2/FASTQs/parent/SRR869587/
+      path: FASTQs/parent/SRR869587/
     - name: SRR6426002
       paired: True
       pedigree: droSec1
@@ -95,6 +95,24 @@ data_sets:
       treatment: selection
       type: empirical
       path: FASTQs/selection/17B/
+    - name: PARC1
+      paired: True
+      pedigree: dm6
+      treatment: parent
+      type: empirical
+      path: FASTQs/parent/PARC1/
+    - name: PARG1
+      paired: True
+      pedigree: dm6
+      treatment: parent
+      type: empirical
+      path: FASTQs/parent/PARG1/
+    - name: REC7
+      paired: True
+      pedigree: dm6
+      treatment: selection
+      type: control
+      path: FASTQs/control/REC7/
 
 reference_genomes:
     - name: droSim1

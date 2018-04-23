@@ -12,9 +12,8 @@ configfile: 'config.yaml'
 sample_by_name = {c['name'] : c for c in config['data_sets']}
 ref_genome_by_name = { g['name'] : g for g in config['reference_genomes']}
 chain_dict_by_destination = config['lift_genomes']
-sea_dubya_dee=config['cwd']
+#sea_dubya_dee=config['cwd']
 samps2process = [c['name'] for c in config['data_sets'] if c['pedigree'] == 'offspring' ]
-print(sea_dubya_dee)
 
 # def get_input_files(sample_name, treatment):
 # 	#collect files
@@ -122,7 +121,7 @@ rule bwa_uniqueUpOnIt:
 		uniqueness="XT:A:U.*X0:i:1.*X1:i:0"
 	run:
 		ref_genome = ref_genome_by_name[wildcards.parent]['path']	
-		'samtools view {params.quality} {input.bam_in} | grep -E {params.uniqueness} | samtools view -bS -T {ref_genome} - | samtools sort -o {output.bam_out} - '
+		shell('samtools view {params.quality} {input.bam_in} | grep -E {params.uniqueness} | samtools view -bS -T {ref_genome} - | samtools sort -o {output.bam_out} - ')
 #		'samtools view {params.quality} mapped_reads/SucSec/SucSec_vs_droSim1.sort.bam | grep "XT:A:U" | grep  "X0:i:1" | grep "X1:i:0" samtools view -bS -T referenceSequence.fa - > reads.uniqueMap.bam'
 
 
@@ -137,9 +136,9 @@ rule NGM_sam:
 	run:
 		ref_genome = ref_genome_by_name[wildcards.parent]['path']
 		paired_reads = sample_by_name[wildcards.sample]['paired']
-		sam="%s.sam" % '.'.join(bam_out.rsplit('.')[:-2])
+		sam="%s.sam" % '.'.join(output.bam_out.rsplit('.')[:-2])
 		if paired_reads:
-			shell('/nas/longleaf/home/csoeder/modules/NextGenMap-0.5.0/bin/ngm-0.5.0/ngm -1 {input.reads[0]} -2 {input.reads[0]} -r {ref_genome} -o {sam} -b -n {params.topn} --no-unal --strata {params.strat}' )
+			shell('/nas/longleaf/home/csoeder/modules/NextGenMap-0.5.0/bin/ngm-0.5.0/ngm -1 {input.reads[0]} -2 {input.reads[1]} -r {ref_genome} -o {sam} -b -n {params.topn} --no-unal --strata {params.strat}' )
 		else:
 			shell('/nas/longleaf/home/csoeder/modules/NextGenMap-0.5.0/bin/ngm-0.5.0/ngm -q {input.reads[0]}  -r {ref_genome} -o {sam} -b -n {params.topn} --no-unal --strata {params.strat}' )
 		shell('samtools sort -o {output.bam_out} {sam}')
@@ -225,34 +224,18 @@ rule window_counter:
 
 
 
-#rule generate_report:
-#	input: expand("analysis_out/{samp}_and_{comp}_vs_{ref}.lift2dm6.dm6_w100000_s10000.windowCounts.bed", samp=samps2process, comp=['synthSec','synthSim'], ref=['droSim1', 'droSec1'])
-
-
-
 vcf_subset = ["10A", "SucSec", "SRR869587", "SRR6426002", "SRR5860570"]
 vcf_subset.sort()
 
 ruleorder: RGfix_single > bwa_sam
 
-# rule RGfix_single:
-# 	#http://snakemake-wrappers.readthedocs.io/en/stable/wrappers/picard/addorreplacereadgroups.html
-#     input:
-#         "mapped_reads/{sample}/{sample}_vs_{parent}.sort.bam"
-#     output:
-#         "mapped_reads/{sample}/{sample}_vs_{parent}.RG{id}.sort.bam"
-#     log:
-#         "logs/picard/replace_rg/{sample}.log"
-#     params:
-#         "RGLB=lib1 RGPL=illumina RGPU={sample} RGSM={sample} RGID={id}"
-#     wrapper:
-#         "0.22.0/bio/picard/addorreplacereadgroups"
+
 
 rule RGfix_single:
 	input:
-		"mapped_reads/{sample}/{sample}_vs_{parent}.sort.bam"
+		"mapped_reads/{sample}/{sample}_vs_{parent}.{aligner}.sort.bam"
 	output:
-		"mapped_reads/{sample}/{sample}_vs_{parent}.RG{id}.sort.bam"
+		"mapped_reads/{sample}/{sample}_vs_{parent}.RG{id}.{aligner}.sort.bam"
 	params:
 		rg="RGLB=lib1 RGPL=illumina RGPU={sample} RGSM={sample} RGID={id}"
 	shell:
@@ -260,7 +243,7 @@ rule RGfix_single:
 
 rule RGfix_all:
 	input:
-		["mapped_reads/%s/%s_vs_droSim1.RG%s.sort.bam" % pear for pear in [ tuple([v, v, str(vcf_subset.index(v))]) for v in vcf_subset ] ]
+		["mapped_reads/%s/%s_vs_droSim1.RG%s.%s.sort.bam" % pear for pear in [ tuple([v, v, str(vcf_subset.index(v)), 'bwa']) for v in vcf_subset ] ]
 	output:
 		"all_RG_fixed.flag"
 	shell:
@@ -269,13 +252,15 @@ rule RGfix_all:
 
 rule vcf_indiv:
 	input:
-		bam = lambda wildcards: "mapped_reads/%s/%s.RG%s.sort.bam" % tuple([ wildcards.sample, wildcards.prefix, str(vcf_subset.index(wildcards.sample)) ])
+		#bam = lambda wildcards: "mapped_reads/%s/%s_vs_%s.RG%s.{aligner}.sort.bam" % tuple([ wildcards.sample, wildcards.prefix, wildcards.ref_genome, str(vcf_subset.index(wildcards.sample)) ])
+		bam = lambda wildcards: "mapped_reads/%s/%s_vs_%s.%s.sort.bam" % tuple([ wildcards.sample, wildcards.sample, wildcards.ref_genome, wildcards.aligner ])
 	output:
-		vcf_out = "variant_comparisons/{prefix}.indiv.{sample}.vcf"
+		vcf_out = "variant_comparisons/{prefix}_vs_{ref_genome}.{aligner}.indiv.{sample}.vcf"
 	params:
 		freebayes="--standard-filters --min-coverage 4"
-	shell:
-		"freebayes {params.freebayes} -f /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/droSim1.fa {input.bam} | vcftools --remove-indels --vcf - --recode --recode-INFO-all --stdout  > {output.vcf_out}"
+	run:
+		path2ref = ref_genome_by_name[wildcards.ref_genome]['path']
+		shell("freebayes {params.freebayes} -f {path2ref} {input.bam} | vcftools --remove-indels --vcf - --recode --recode-INFO-all --stdout  > {output.vcf_out}")
 
 
 rule vcf_joint:
@@ -296,10 +281,89 @@ rule call_indiv_from_joint_vcf:
 		"vcftools --indv {wildcards.sample} --vcf {input} --recode --recode-INFO-all --stdout > {output.vcf_out}"
 
 
+rule zyggy_stardust:
+	input: 
+		#vcf_in = "variant_comparisons/{vcf_prefix}.{call_type}.{sample}.vcf",
+		vcf_in = "variant_comparisons/{vcf_prefix}.vcf",
+		windoze = "{window_prefix}.windows.bed",
+	output:
+		#bed_out = "{vcf_prefix}.{window_prefix}.{who}.windowedZygosity.bed"
+		bed_out = "analysis_out/{vcf_prefix}.{window_prefix}.windowedZygosity.bed"
+	shell:
+		#"sh scripts/vcf_zyggy.sh {input.vcf_in} {input.windoze} {output.bed_out} {wildcards.who}"
+		"sh scripts/vcf_zyggy.sh {input.vcf_in} {input.windoze} {output.bed_out}"
 
-# 	# run:
-# 	# 	"sh scripts/vcf_zyggy.sh {input.vcf_in} {input.windoze} {output.bed_out} {wildcards.who}"
+#rule take_off_every_zyg:
 
+
+
+#https://www.biostars.org/p/178146/
+# hets & homs treated as equivalent
+rule naive_vcf_compare:
+	input:
+		vcf_parent = "variant_comparisons/{sample_p}_vs_{genome}.{mapper_p}.{caller_p}.{sample_p}.vcf",
+		vcf_offspring = "variant_comparisons/{sample_o}_vs_{genome}.{mapper_o}.{caller_o}.{sample_o}.vcf",
+#		vcf_parent = "variant_comparisons/{vcf_prefix_p}.{call_type_p}.{sample_p}.vcf",
+#		vcf_offspring = "variant_comparisons/{vcf_prefix_o}.{call_type_o}.{sample_o}.vcf",
+#		windoze = "{window_prefix}.windows.bed",
+	output:
+		vcf_shared_snps_bed = "variant_comparisons/{sample_o}.{mapper_o}.{caller_o}.sharedWith.{sample_p}.{mapper_p}.{caller_p}.vs_{genome}.vcfNaive.sharedSnps.bed"
+	shell:
+		"sh scripts/vcf_naive.sh {input.vcf_parent} {input.vcf_offspring} {output.vcf_shared_snps_bed}"
+
+# shared vars
+#vcftools --vcf SRR5860570_vs_droSim1.filt.indiv.vcf --diff  SRR6426002_vs_droSim1.filt.indiv.vcf  --diff-site  --stdout | awk '{if(($4 == "B") && ($7 == $8))print $1, $2-1, $2;}' 
+# unshared parent vars 
+#vcftools --vcf {input.vcf_parent} --diff  {input.vcf_offspring}  --diff-site  --stdout | awk '{if(($4 == "1"))print $1, $2-1, $2, 0;}'
+
+
+
+#leverage trio information
+#rule nuanced_vcf_compare:
+
+#http://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#bedops
+
+
+
+
+rule build_PsiSeq2_analysis_withRich:
+	input:
+		lift_tests = ["analysis_out/10A_and_SynthSec_vs_droSim1.droSim1_w100000_s10000.windowCounts.bed","analysis_out/10A_and_SynthSim_vs_droSec1.droSec1_w100000_s10000.windowCounts.bed","variant_comparisons/10A_and_SynthSec_vs_droSim1.dm6.sharedSnps.tooHeavy.bed"],
+		psiSeq_lines = ["analysis_out/10A_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/10B_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/13A_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/13B_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/17A_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/17B_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR303333_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/10A_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/10B_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/13A_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/13B_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/17A_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/17B_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR303333_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed"],
+		check_Flybase_genomes=['analysis_out/SucSec_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed','analysis_out/SRR869587_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed','analysis_out/SRR6426002_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed','analysis_out/SRR5860570_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed','analysis_out/SucSec_and_SynthSimFB_vs_dsecr1.bwa.dsecr1_w100000_s10000.windowCounts.bed','analysis_out/SRR869587_and_SynthSimFB_vs_dsecr1.bwa.dsecr1_w100000_s10000.windowCounts.bed','analysis_out/SRR6426002_and_SynthSimFB_vs_dsecr1.bwa.dsecr1_w100000_s10000.windowCounts.bed','analysis_out/SRR5860570_and_SynthSimFB_vs_dsecr1.bwa.dsecr1_w100000_s10000.windowCounts.bed'],
+		control_sec_lines = ["analysis_out/SucSec_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR869587_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR869587_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR6426002_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR6426002_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR5860570_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR5860570_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed"],
+		different_parent_lines=["analysis_out/10A_and_SRR869587_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/10A_and_SRR6426002_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/10A_and_SRR5860570_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SRR869587_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SRR6426002_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SRR5860570_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed"],
+		different_mapping_strategies = ["analysis_out/SucSec_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSec_vs_droSim1.bwaUniq.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSec_vs_droSim1.ngm.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSim_vs_droSec1.bwaUniq.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSim_vs_droSec1.ngm.lift2dm6.dm6_w100000_s10000.windowCounts.bed"],
+		heterozygosity_results = ["analysis_out/10A_vs_droSim1.bwa.indiv.10A.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/10A_vs_droSim1.bwa.joint.10A.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR5860570_vs_droSim1.bwa.indiv.SRR5860570.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR5860570_vs_droSim1.bwa.joint.SRR5860570.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR6426002_vs_droSim1.bwa.indiv.SRR6426002.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR6426002_vs_droSim1.bwa.joint.SRR6426002.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR869587_vs_droSim1.bwa.indiv.SRR869587.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR869587_vs_droSim1.bwa.joint.SRR869587.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SucSec_vs_droSim1.bwa.indiv.SucSec.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SucSec_vs_droSim1.bwa.joint.SucSec.droSim1_w100000_s10000.windowedZygosity.bed"],
+		variant_based_results = [],
+
+	output:
+		pdf_report = "PsiSeq2.pdf"
+	shell:
+		"sh scripts/markerDown.sh PsiSeq2_TheSequel.Rmd {output.pdf_report}"
+# 		'R -e Sys.setenv"(RSTUDIO_PANDOC="/nas/longleaf/apps/rstudio/1.0.136/bin/pandoc")" -e  rmarkdown::render"("scripts/PsiSeq2_TheSequel.Rmd",output_file="PsiSeq2.pdf")"'
+
+
+
+#different_mapping_strategies=[],
+# non-suc example?
+
+
+
+rule build_PsiSeq2_analysis_withoutRich:
+	input:
+		lift_tests = ["analysis_out/10A_and_SynthSec_vs_droSim1.droSim1_w100000_s10000.windowCounts.bed","analysis_out/10A_and_SynthSim_vs_droSec1.droSec1_w100000_s10000.windowCounts.bed","variant_comparisons/10A_and_SynthSec_vs_droSim1.dm6.sharedSnps.tooHeavy.bed"],
+		psiSeq_lines = ["analysis_out/10A_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/10B_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/13A_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/13B_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/17A_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/17B_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR303333_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/10A_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/10B_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/13A_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/13B_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/17A_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/17B_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR303333_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed"],
+		check_Flybase_genomes=['analysis_out/SRR869587_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed','analysis_out/SRR6426002_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed','analysis_out/SRR5860570_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed','analysis_out/SRR869587_and_SynthSimFB_vs_dsecr1.bwa.dsecr1_w100000_s10000.windowCounts.bed','analysis_out/SRR6426002_and_SynthSimFB_vs_dsecr1.bwa.dsecr1_w100000_s10000.windowCounts.bed','analysis_out/SRR5860570_and_SynthSimFB_vs_dsecr1.bwa.dsecr1_w100000_s10000.windowCounts.bed'],
+		control_sec_lines = ["analysis_out/SRR869587_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR869587_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR6426002_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR6426002_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR5860570_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SRR5860570_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed"],
+		different_parent_lines=["analysis_out/10A_and_SRR869587_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/10A_and_SRR6426002_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/10A_and_SRR5860570_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed"],
+		heterozygosity_results = [],
+		variant_based_results = [],
+
+	output:
+		pdf_report = "PsiSeq2.noRich.pdf"
+	shell:
+		"sh markerDown.sh PsiSeq2_TheSequel.Rmd {output.pdf_report}"
 
 # rule indiv_zyggy:
 # 	input:
@@ -324,6 +388,7 @@ rule call_indiv_from_joint_vcf:
 
 # 	cat vcfToolsTest.diff.sites_in_files  | if $4 == "B" | if $7==$8  > vcf_shared_SNPS
 
+#vcftools --vcf SRR5860570_vs_droSim1.filt.indiv.vcf --diff  SRR6426002_vs_droSim1.filt.indiv.vcf  --diff-site  --stdout | awk '{if($4 == "B")print $1, $2, $2+1;}' |tr ' ' '\t' |head -n 1 > test.bed
 
 
 
@@ -341,5 +406,16 @@ rule call_indiv_from_joint_vcf:
 #sbatch -n 3 -t 6:00:00 -o freebayes_everything.slurm.out "freebayes --standard-filters --min-coverage 4 -f /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/droSim1.fa mapped_reads/C*/*sort.bam mapped_reads/PSI*/*sort.bam mapped^C vcftools --remove-indels --vcf - --recode --recode-INFO-all --stdout  > {output.joint_vcf}"
 
 
-
+# rule RGfix_single:
+# 	#http://snakemake-wrappers.readthedocs.io/en/stable/wrappers/picard/addorreplacereadgroups.html
+#     input:
+#         "mapped_reads/{sample}/{sample}_vs_{parent}.sort.bam"
+#     output:
+#         "mapped_reads/{sample}/{sample}_vs_{parent}.RG{id}.sort.bam"
+#     log:
+#         "logs/picard/replace_rg/{sample}.log"
+#     params:
+#         "RGLB=lib1 RGPL=illumina RGPU={sample} RGSM={sample} RGID={id}"
+#     wrapper:
+#         "0.22.0/bio/picard/addorreplacereadgroups"
 

@@ -1,0 +1,585 @@
+---
+title: 'PsiSeq2: The Sequel'
+author: "Charlie Soeder"
+date: "2/26/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r echo=FALSE, include=FALSE}
+source("http://bioconductor.org/biocLite.R")
+#biocLite("BiocUpgrade")
+library(tidyverse)
+library(rtracklayer)
+library(ggbio)
+#setwd("/Users/csoeder/Research/PSIseq/PsiSeq2")
+setwd("/proj/cdjones_lab/csoeder/PsiSeq2/")
+```
+
+
+RUNME:
+
+PATH=/nas/longleaf/home/csoeder/modules/texlive/install_dir:$PATH
+ R -e Sys.setenv"(RSTUDIO_PANDOC='/nas/longleaf/apps/rstudio/1.0.136/bin/pandoc')" -e  rmarkdown::render"('PsiSeq2_TheSequel.Rmd',output_file='test.html')"
+
+## Introduction
+
+(explain PSISeq)
+
+## Materials & Methods
+
+### data:
+* reference genomes
+* reads: two replicates (A/B) of three back-crossed lines (10, 13, 17); SRR303 from before
+  * control lines
+* synthetic parental reads using ART
+
+### methods:
+*reimplement the algorithm in Python, bundle with Snakemake
+*liftover 
+
+## Results
+
+### Basic Output
+
+```{r echo=FALSE, include=FALSE}
+
+tenA.vsSim.noLift <- import.bedGraph("analysis_out/10A_and_SynthSec_vs_droSim1.droSim1_w100000_s10000.windowCounts.bed", genome="droSim1")
+names(tenA.vsSim.noLift@elementMetadata) <- c('actual', 'potential')
+tenA.vsSim.noLift$ratio <- tenA.vsSim.noLift$actual/tenA.vsSim.noLift$potential
+tenA.vsSim.noLift$replicate <- as.factor("A") 
+tenA.vsSim.noLift$comp <-as.factor("SIM")
+tenA.vsSim.noLift$sample <-as.factor("10")
+tenA.vsSim.noLift.chr2L <- tenA.vsSim.noLift[tenA.vsSim.noLift@seqnames =='chr2L' ]
+
+tenA.vsSim.noLift.chr2L.potential <- autoplot(tenA.vsSim.noLift.chr2L, aes(y=potential), color='black', geom='line') 
+
+tenA.vsSim.noLift.chr2L.actual <- autoplot(tenA.vsSim.noLift.chr2L, aes(y=actual), color='black', geom='line') 
+
+tenA.vsSim.noLift.chr2L.ratio <- autoplot(tenA.vsSim.noLift.chr2L, aes(y=ratio), color='black', geom='line') 
+
+tenA.vsSim.noLift.chr2L.tks <- tracks(tenA.vsSim.noLift.chr2L.potential, tenA.vsSim.noLift.chr2L.actual, tenA.vsSim.noLift.chr2L.ratio)
+
+tenA.vsSim.noLift.chr2L.tks
+```
+
+```{r echo=FALSE}
+
+tenA.vsSec.noLift <- import.bedGraph("analysis_out/10A_and_SynthSim_vs_droSec1.droSec1_w100000_s10000.windowCounts.bed", genome="droSec1")
+names(tenA.vsSec.noLift@elementMetadata) <- c('actual', 'potential')
+tenA.vsSec.noLift$ratio <- tenA.vsSec.noLift$actual/tenA.vsSec.noLift$potential
+tenA.vsSec.noLift$replicate <- as.factor("A") 
+tenA.vsSec.noLift$comp <-as.factor("Sec")
+tenA.vsSec.noLift$sample <-as.factor("10")
+tenA.vsSec.noLift.super14 <- tenA.vsSec.noLift[tenA.vsSec.noLift@seqnames =='super_14' ]
+
+tenA.vsSec.noLift.super14.potential <- autoplot(tenA.vsSec.noLift.super14, aes(y=potential), color='black', geom='line') 
+
+tenA.vsSec.noLift.super14.actual <- autoplot(tenA.vsSec.noLift.super14, aes(y=actual), color='black', geom='line') 
+
+tenA.vsSec.noLift.super14.ratio <- autoplot(tenA.vsSec.noLift.super14, aes(y=ratio), color='black', geom='line') 
+
+tenA.vsSec.noLift.super14.tks <- tracks(tenA.vsSec.noLift.super14.potential, tenA.vsSec.noLift.super14.actual, tenA.vsSec.noLift.super14.ratio)
+
+tenA.vsSec.noLift.super14.tks 
+```
+
+(Show unlifted, note fragmentation of d.Sech genome)
+
+
+
+```{r echo=FALSE, include=FALSE}
+tenA.vsSim.tooHeavy <- import.bedGraph("variant_comparisons/10A_and_SynthSec_vs_droSim1.dm6.sharedSnps.tooHeavy.bed", genome="droSim1")
+names(tenA.vsSim.tooHeavy@elementMetadata) <- c('score','call')
+tenA.vsSim.tooHeavy$call <- as.factor(tenA.vsSim.tooHeavy$call) 
+tenA.vsSim.tooHeavy$comp <- as.factor("SIM")
+tenA.vsSim.tooHeavy$sample <- as.factor("10")
+tenA.vsSim.tooHeavy$replicate <- as.factor("A")
+tenA.vsSim.tooHeavy.chr2L <- tenA.vsSim.tooHeavy[ tenA.vsSim.tooHeavy@seqnames =='chr2L' ]
+
+```
+
+(show too_Heavy)
+
+
+
+(show lifted)
+```{r echo=FALSE, include=FALSE}
+
+lifted.10A.vsSim <- import.bedGraph("analysis_out/10A_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.10B.vsSim <- import.bedGraph("analysis_out/10B_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.13A.vsSim <- import.bedGraph("analysis_out/13A_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.13B.vsSim <- import.bedGraph("analysis_out/13B_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.17A.vsSim <- import.bedGraph("analysis_out/17A_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.17B.vsSim <- import.bedGraph("analysis_out/17B_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR303333.vsSim <- import.bedGraph("analysis_out/SRR303333_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+
+
+
+names(lifted.10A.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.10B.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.13A.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.13B.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.17A.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.17B.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR303333.vsSim@elementMetadata) <- c('actual', 'potential')
+lifted.10A.vsSim$ratio <- lifted.10A.vsSim$actual/lifted.10A.vsSim$potential
+lifted.10B.vsSim$ratio <- lifted.10B.vsSim$actual/lifted.10B.vsSim$potential
+lifted.13A.vsSim$ratio <- lifted.13A.vsSim$actual/lifted.13A.vsSim$potential
+lifted.13B.vsSim$ratio <- lifted.13B.vsSim$actual/lifted.13B.vsSim$potential
+lifted.17A.vsSim$ratio <- lifted.17A.vsSim$actual/lifted.17A.vsSim$potential
+lifted.17B.vsSim$ratio <- lifted.17B.vsSim$actual/lifted.17B.vsSim$potential
+lifted.SRR303333.vsSim$ratio <- lifted.SRR303333.vsSim$actual/lifted.SRR303333.vsSim$potential
+
+lifted.10A.vsSim$replicate <- as.factor("A") 
+lifted.10B.vsSim$replicate <- as.factor("B") 
+lifted.13A.vsSim$replicate <- as.factor("A") 
+lifted.13B.vsSim$replicate <- as.factor("B") 
+lifted.17A.vsSim$replicate <- as.factor("A") 
+lifted.17B.vsSim$replicate <- as.factor("B") 
+lifted.SRR303333.vsSim$replicate <- as.factor("0")
+lifted.10A.vsSim$comp <-as.factor("SIM")
+lifted.10B.vsSim$comp <-as.factor("SIM")
+lifted.13A.vsSim$comp <-as.factor("SIM")
+lifted.13B.vsSim$comp <-as.factor("SIM")
+lifted.17A.vsSim$comp <-as.factor("SIM")
+lifted.17B.vsSim$comp <-as.factor("SIM")
+lifted.SRR303333.vsSim$comp <- as.factor("SIM")
+lifted.10A.vsSim$sample <-as.factor("10")
+lifted.10B.vsSim$sample <-as.factor("10")
+lifted.13A.vsSim$sample <-as.factor("13")
+lifted.13B.vsSim$sample <-as.factor("13")
+lifted.17A.vsSim$sample <-as.factor("17")
+lifted.10B.vsSim$sample <-as.factor("17")
+lifted.SRR303333.vsSim$sample <- as.factor("SRR303333")
+
+lifted.10A.vsSec <- import.bedGraph("analysis_out/10A_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.10B.vsSec <- import.bedGraph("analysis_out/10B_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.13A.vsSec <- import.bedGraph("analysis_out/13A_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.13B.vsSec <- import.bedGraph("analysis_out/13B_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.17A.vsSec <- import.bedGraph("analysis_out/17A_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.17B.vsSec <- import.bedGraph("analysis_out/17B_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR303333.vsSec <- import.bedGraph("analysis_out/SRR303333_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+
+
+names(lifted.10A.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.10B.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.13A.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.13B.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.17A.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.17B.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR303333.vsSec@elementMetadata) <- c('actual', 'potential')
+lifted.10A.vsSec$ratio <- lifted.10A.vsSec$actual/lifted.10A.vsSec$potential
+lifted.10B.vsSec$ratio <- lifted.10B.vsSec$actual/lifted.10B.vsSec$potential
+lifted.13A.vsSec$ratio <- lifted.13A.vsSec$actual/lifted.13A.vsSec$potential
+lifted.13B.vsSec$ratio <- lifted.13B.vsSec$actual/lifted.13B.vsSec$potential
+lifted.17A.vsSec$ratio <- lifted.17A.vsSec$actual/lifted.17A.vsSec$potential
+lifted.17B.vsSec$ratio <- lifted.17B.vsSec$actual/lifted.17B.vsSec$potential
+lifted.SRR303333.vsSec$ratio <- lifted.SRR303333.vsSec$actual/lifted.SRR303333.vsSec$potential
+
+lifted.10A.vsSec$replicate <- as.factor("A") 
+lifted.10B.vsSec$replicate <- as.factor("B") 
+lifted.13A.vsSec$replicate <- as.factor("A") 
+lifted.13B.vsSec$replicate <- as.factor("B") 
+lifted.17A.vsSec$replicate <- as.factor("A") 
+lifted.17B.vsSec$replicate <- as.factor("B") 
+lifted.SRR303333.vsSec$replicate <- as.factor("0")
+lifted.10A.vsSec$comp <-as.factor("SEC")
+lifted.10B.vsSec$comp <-as.factor("SEC")
+lifted.13A.vsSec$comp <-as.factor("SEC")
+lifted.13B.vsSec$comp <-as.factor("SEC")
+lifted.17A.vsSec$comp <-as.factor("SEC")
+lifted.17B.vsSec$comp <-as.factor("SEC")
+lifted.SRR303333.vsSec$comp <- as.factor("SEC")
+lifted.10A.vsSec$sample <-as.factor("10")
+lifted.10B.vsSec$sample <-as.factor("10")
+lifted.13A.vsSec$sample <-as.factor("13")
+lifted.13B.vsSec$sample <-as.factor("13")
+lifted.17A.vsSec$sample <-as.factor("17")
+lifted.17B.vsSec$sample <-as.factor("17")
+lifted.SRR303333.vsSec$sample <- as.factor("SRR303333")
+
+```
+
+
+
+```{r echo=FALSE, include=FALSE}
+
+all_samples_lifted <- c(lifted.10A.vsSec,lifted.10B.vsSec,lifted.13A.vsSec,lifted.13B.vsSec,lifted.17A.vsSec,lifted.10B.vsSec,lifted.10A.vsSim,lifted.10B.vsSim,lifted.13A.vsSim,lifted.13B.vsSim,lifted.17A.vsSim,lifted.10B.vsSim, lifted.SRR303333.vsSec, lifted.SRR303333.vsSim)
+```
+
+```{r echo=FALSE, include=FALSE}
+all_samples_lifted.chr2L <- all_samples_lifted[all_samples_lifted@seqnames =='chr2L' ]
+
+```
+
+```{r echo=FALSE, include=FALSE}
+autoplot(all_samples_lifted.chr2L, aes(y=potential, color=sample, linetype=replicate), geom='line') + facet_grid(comp~., scale="free")  
+
+autoplot(all_samples_lifted.chr2L, aes(y=actual, color=sample, linetype=replicate), geom='line') + facet_grid(comp~., scale="free")  
+
+autoplot(all_samples_lifted.chr2L, aes(y=ratio, color=sample, linetype=replicate), geom='line') + facet_grid(comp~., scale="free")  
+
+```
+
+(mention the chr2L artefact; compare to original finding)
+
+### Comparison to control
+
+```{r echo=FALSE, include=FALSE}
+lifted.SucSec.vsSim <- import.bedGraph("analysis_out/SucSec_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SucSec.vsSec <- import.bedGraph("analysis_out/SucSec_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR869587.vsSim <- import.bedGraph("analysis_out/SRR869587_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR869587.vsSec <- import.bedGraph("analysis_out/SRR869587_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR6426002.vsSim <- import.bedGraph("analysis_out/SRR6426002_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR6426002.vsSec <- import.bedGraph("analysis_out/SRR6426002_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR5860570.vsSim <- import.bedGraph("analysis_out/SRR5860570_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR5860570.vsSec <- import.bedGraph("analysis_out/SRR5860570_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+
+names(lifted.SucSec.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR869587.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR6426002.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR5860570.vsSim@elementMetadata) <- c('actual', 'potential')
+lifted.SucSec.vsSim$ratio <- lifted.SucSec.vsSim$actual/lifted.SucSec.vsSim$potential
+lifted.SRR869587.vsSim$ratio <- lifted.SRR869587.vsSim$actual/lifted.SRR869587.vsSim$potential
+lifted.SRR6426002.vsSim$ratio <- lifted.SRR6426002.vsSim$actual/lifted.SRR6426002.vsSim$potential
+lifted.SRR5860570.vsSim$ratio <- lifted.SRR5860570.vsSim$actual/lifted.SRR5860570.vsSim$potential
+lifted.SucSec.vsSim$comp <-as.factor("SIM")
+lifted.SRR869587.vsSim$comp <-as.factor("SIM")
+lifted.SRR6426002.vsSim$comp <-as.factor("SIM")
+lifted.SRR5860570.vsSim$comp <-as.factor("SIM")
+lifted.SucSec.vsSim$sample <-as.factor("SucSec")
+lifted.SRR869587.vsSim$sample <-as.factor("SRR869587")
+lifted.SRR6426002.vsSim$sample <-as.factor("SRR6426002")
+lifted.SRR5860570.vsSim$sample <-as.factor("SRR5860570")
+names(lifted.SucSec.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR869587.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR6426002.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR5860570.vsSec@elementMetadata) <- c('actual', 'potential')
+lifted.SucSec.vsSec$ratio <- lifted.SucSec.vsSec$actual/lifted.SucSec.vsSec$potential
+lifted.SRR869587.vsSec$ratio <- lifted.SRR869587.vsSec$actual/lifted.SRR869587.vsSec$potential
+lifted.SRR6426002.vsSec$ratio <- lifted.SRR6426002.vsSec$actual/lifted.SRR6426002.vsSec$potential
+lifted.SRR5860570.vsSec$ratio <- lifted.SRR5860570.vsSec$actual/lifted.SRR5860570.vsSec$potential
+lifted.SucSec.vsSec$comp <-as.factor("SEC")
+lifted.SRR869587.vsSec$comp <-as.factor("SEC")
+lifted.SRR6426002.vsSec$comp <-as.factor("SEC")
+lifted.SRR5860570.vsSec$comp <-as.factor("SEC")
+lifted.SucSec.vsSec$sample <-as.factor("SucSec")
+lifted.SRR869587.vsSec$sample <-as.factor("SRR869587")
+lifted.SRR6426002.vsSec$sample <-as.factor("SRR6426002")
+lifted.SRR5860570.vsSec$sample <-as.factor("SRR5860570")
+```
+
+
+```{r echo=FALSE, include=FALSE}
+drops=c("replicate")
+lifted.10A.vsSec.cntrl <- lifted.10A.vsSec
+lifted.10A.vsSec.cntrl@elementMetadata<- lifted.10A.vsSec.cntrl@elementMetadata[, !(names(lifted.10A.vsSec.cntrl@elementMetadata) %in% drops)]
+
+lifted.10A.vsSim.cntrl <- lifted.10A.vsSim
+lifted.10A.vsSim.cntrl@elementMetadata<- lifted.10A.vsSim.cntrl@elementMetadata[, !(names(lifted.10A.vsSim.cntrl@elementMetadata) %in% drops)]
+
+
+all_controls <- c(lifted.SRR5860570.vsSec,lifted.SRR5860570.vsSim,lifted.SRR6426002.vsSec,lifted.SRR6426002.vsSim,lifted.SRR869587.vsSec,lifted.SRR869587.vsSim,lifted.SucSec.vsSec,lifted.SucSec.vsSim,lifted.10A.vsSec.cntrl,lifted.10A.vsSim.cntrl)
+all_controls.chr2L <- all_controls[ all_controls@seqnames =='chr2L' ]
+
+
+```
+
+```{r echo=FALSE, include=FALSE}
+
+autoplot(all_controls.chr2L, aes(y=ratio, color=sample), geom='line') + facet_grid(comp~., scale="free")  
+
+```
+
+
+
+### (Compare across genome assemblies)
+
+
+```{r echo=FALSE, include=FALSE}
+
+SucSec.vsSimFB <- import.bedGraph("analysis_out/SucSec_and_SynthSec_vs_dsimr2.dsimr2_w100000_s10000.windowCounts.bed")
+SRR869587.vsSimFB <- import.bedGraph("analysis_out/SRR869587_and_SynthSec_vs_dsimr2.dsimr2_w100000_s10000.windowCounts.bed")
+SRR6426002.vsSimFB <- import.bedGraph("analysis_out/SRR6426002_and_SynthSec_vs_dsimr2.dsimr2_w100000_s10000.windowCounts.bed")
+SRR5860570.vsSimFB <- import.bedGraph("analysis_out/SRR5860570_and_SynthSec_vs_dsimr2.dsimr2_w100000_s10000.windowCounts.bed")
+names(SucSec.vsSimFB@elementMetadata) <- c('actual', 'potential')
+names(SRR869587.vsSimFB@elementMetadata) <- c('actual', 'potential')
+names(SRR6426002.vsSimFB@elementMetadata) <- c('actual', 'potential')
+names(SRR5860570.vsSimFB@elementMetadata) <- c('actual', 'potential')
+SucSec.vsSimFB$ratio <- SucSec.vsSimFB$actual/SucSec.vsSimFB$potential
+SRR869587.vsSimFB$ratio <- SRR869587.vsSimFB$actual/SRR869587.vsSimFB$potential
+SRR6426002.vsSimFB$ratio <- SRR6426002.vsSimFB$actual/SRR6426002.vsSimFB$potential
+SRR5860570.vsSimFB$ratio <- SRR5860570.vsSimFB$actual/SRR5860570.vsSimFB$potential
+SucSec.vsSimFB$comp <-as.factor("SIM")
+SRR869587.vsSimFB$comp <-as.factor("SIM")
+SRR6426002.vsSimFB$comp <-as.factor("SIM")
+SRR5860570.vsSimFB$comp <-as.factor("SIM")
+SucSec.vsSimFB$sample <- as.factor("SucSec")
+SRR869587.vsSimFB$sample <- as.factor("SRR869587")
+SRR6426002.vsSimFB$sample <- as.factor("SRR6426002")
+SRR5860570.vsSimFB$sample <- as.factor("SRR5860570")
+
+all_controls.dm6 <- all_controls
+all_controls.dm6$reference <- as.factor("droSim1")
+all_controls.dm6.chr2L <-  all_controls.dm6[ all_controls.dm6@seqnames =='chr2L' ]
+
+
+all_controls.FB <- c(SucSec.vsSimFB,SRR869587.vsSimFB,SRR6426002.vsSimFB,SRR5860570.vsSimFB)
+all_controls.FB$reference <- as.factor("dsimr2")
+all_controls.FB.chr2L <-  all_controls.FB[ all_controls.FB@seqnames =='Scf_2L' ]
+
+
+
+all_controls.both_refs.chr2L <- c( subset(all_controls.dm6.chr2L, comp=="SIM"), all_controls.FB.chr2L)
+
+```
+
+
+
+ADD 10A vs FBsim?????
+fix this vvv
+```{r echo=FALSE, include=FALSE}
+
+autoplot(all_controls.both_refs.chr2L, aes(y=ratio, color=sample), geom='line') #+ facet_grid(seqname~., scale="free")  
+
+```
+
+
+### calling variants from different lines as parents. 
+
+```{r echo=FALSE, include=FALSE}
+
+
+lifted.10A_and_SRR869587.vsSim  <- import.bedGraph("analysis_out/10A_and_SRR869587_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.10A_and_SRR6426002.vsSim  <- import.bedGraph("analysis_out/10A_and_SRR6426002_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.10A_and_SRR5860570.vsSim  <- import.bedGraph("analysis_out/10A_and_SRR5860570_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SucSec_and_SRR869587.vsSim  <- import.bedGraph("analysis_out/SucSec_and_SRR869587_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SucSec_and_SRR6426002.vsSim  <- import.bedGraph("analysis_out/SucSec_and_SRR6426002_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SucSec_and_SRR5860570.vsSim  <- import.bedGraph("analysis_out/SucSec_and_SRR5860570_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+names(lifted.10A_and_SRR869587.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.10A_and_SRR6426002.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.10A_and_SRR5860570.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SucSec_and_SRR869587.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SucSec_and_SRR6426002.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SucSec_and_SRR5860570.vsSim@elementMetadata) <- c('actual', 'potential')
+lifted.10A_and_SRR869587.vsSim$ratio <-lifted.10A_and_SRR869587.vsSim$actual/lifted.10A_and_SRR869587.vsSim$potential
+lifted.10A_and_SRR6426002.vsSim$ratio <-lifted.10A_and_SRR6426002.vsSim$actual/lifted.10A_and_SRR6426002.vsSim$potential
+lifted.10A_and_SRR5860570.vsSim$ratio <-lifted.10A_and_SRR5860570.vsSim$actual/lifted.10A_and_SRR5860570.vsSim$potential
+lifted.SucSec_and_SRR869587.vsSim$ratio <-lifted.SucSec_and_SRR869587.vsSim$actual/lifted.SucSec_and_SRR869587.vsSim$potential
+lifted.SucSec_and_SRR6426002.vsSim$ratio <-lifted.SucSec_and_SRR6426002.vsSim$actual/lifted.SucSec_and_SRR6426002.vsSim$potential
+lifted.SucSec_and_SRR5860570.vsSim$ratio <-lifted.SucSec_and_SRR5860570.vsSim$actual/lifted.SucSec_and_SRR5860570.vsSim$potential
+lifted.10A_and_SRR869587.vsSim$replicate <- as.factor(0)
+lifted.10A_and_SRR6426002.vsSim$replicate <- as.factor(0)
+lifted.10A_and_SRR5860570.vsSim$replicate <- as.factor(0)
+lifted.SucSec_and_SRR869587.vsSim$replicate <- as.factor(0)
+lifted.SucSec_and_SRR6426002.vsSim$replicate <- as.factor(0)
+lifted.SucSec_and_SRR5860570.vsSim$replicate <- as.factor(0)
+lifted.10A_and_SRR869587.vsSim$comp <- as.factor('SIM')
+lifted.10A_and_SRR6426002.vsSim$comp <- as.factor('SIM')
+lifted.10A_and_SRR5860570.vsSim$comp <- as.factor('SIM')
+lifted.SucSec_and_SRR869587.vsSim$comp <- as.factor('SIM')
+lifted.SucSec_and_SRR6426002.vsSim$comp <- as.factor('SIM')
+lifted.SucSec_and_SRR5860570.vsSim$comp <- as.factor('SIM')
+lifted.10A_and_SRR869587.vsSim$sample <- as.factor('10A')
+lifted.10A_and_SRR6426002.vsSim$sample <- as.factor('10A')
+lifted.10A_and_SRR5860570.vsSim$sample <- as.factor('10A')
+lifted.SucSec_and_SRR869587.vsSim$sample <- as.factor('SucSec')
+lifted.SucSec_and_SRR6426002.vsSim$sample <- as.factor('SucSec')
+lifted.SucSec_and_SRR5860570.vsSim$sample <- as.factor('SucSec')
+lifted.10A_and_SRR869587.vsSim$parental <- as.factor('SRR869587')
+lifted.10A_and_SRR6426002.vsSim$parental <- as.factor('SRR6426002')
+lifted.10A_and_SRR5860570.vsSim$parental <- as.factor('SRR5860570')
+lifted.SucSec_and_SRR869587.vsSim$parental <- as.factor('SRR869587')
+lifted.SucSec_and_SRR6426002.vsSim$parental <- as.factor('SRR6426002')
+lifted.SucSec_and_SRR5860570.vsSim$parental <- as.factor('SRR5860570')
+
+lifted.10A_and_synthSec.vsSim <- lifted.10A.vsSim
+lifted.10A_and_synthSec.vsSim$parental <- as.factor("SynthSec")
+lifted.SucSec_and_synthSec.vsSim <- lifted.SucSec.vsSim
+lifted.SucSec_and_synthSec.vsSim$parental <- as.factor("SynthSec")
+
+lifted.SucSec_and_synthSec.vsSim$replicate <- as.factor(0)
+lifted.SucSec_and_synthSec.vsSim@elementMetadata <- lifted.SucSec_and_synthSec.vsSim@elementMetadata[,c("actual","potential","ratio","replicate","comp","sample","parental" )]
+
+all_parentals <- c(lifted.10A_and_SRR5860570.vsSim,lifted.10A_and_SRR6426002.vsSim,lifted.10A_and_SRR869587.vsSim,lifted.10A_and_synthSec.vsSim,lifted.SucSec_and_SRR5860570.vsSim,lifted.SucSec_and_SRR6426002.vsSim,lifted.SucSec_and_SRR869587.vsSim,lifted.SucSec_and_synthSec.vsSim)
+
+all_parentals.chr2L <- all_parentals[all_parentals@seqnames =='chr2L' ]
+
+```
+
+
+
+```{r echo=FALSE, include=FALSE}
+
+autoplot(all_parentals.chr2L, aes(y=ratio, color=parental, linetype=sample), geom='line') + facet_grid(comp~., scale="free") 
+#why does this only have one comp?
+
+```
+
+### (Compare filtration/mappers)
+
+
+
+```{r echo=FALSE, include=FALSE}
+SucSec.vsSim.bwa <- lifted.SucSec.vsSim #<- import.bedGraph("analysis_out/SucSec_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SucSec.vsSim.bwaUniq <- import.bedGraph("analysis_out/SucSec_and_SynthSec_vs_droSim1.bwaUniq.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SucSec.vsSim.ngm <- import.bedGraph("analysis_out/SucSec_and_SynthSec_vs_droSim1.ngm.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SucSec.vsSec.bwa <- lifted.SucSec.vsSec # <- import.bedGraph("analysis_out/SucSec_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SucSec.vsSec.bwaUniq<- import.bedGraph("analysis_out/SucSec_and_SynthSim_vs_droSec1.bwaUniq.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SucSec.vsSec.ngm<- import.bedGraph("analysis_out/SucSec_and_SynthSim_vs_droSec1.ngm.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+#names(SucSec.vsSim.bwa@elementMetadata) <-  
+names(SucSec.vsSim.bwaUniq@elementMetadata) <- c('actual', 'potential')
+names(SucSec.vsSim.ngm@elementMetadata) <- c('actual', 'potential')
+names(SucSec.vsSec.bwa@elementMetadata) <- c('actual', 'potential')
+names(SucSec.vsSec.bwaUniq@elementMetadata) <- c('actual', 'potential')
+names(SucSec.vsSec.ngm@elementMetadata) <- c('actual', 'potential')
+
+SucSec.vsSim.bwa$replicate <- as.factor(0)
+SucSec.vsSim.bwaUniq$replicate <- as.factor(0)
+SucSec.vsSim.ngm$replicate <- as.factor(0)
+SucSec.vsSec.bwa$replicate <- as.factor(0)
+SucSec.vsSec.bwaUniq$replicate <- as.factor(0)
+SucSec.vsSec.ngm$replicate <- as.factor(0)
+
+#SucSec.vsSim.bwa$comp <- as.factor('SIM')
+SucSec.vsSim.bwaUniq$comp <- as.factor('SIM')
+SucSec.vsSim.ngm$comp <- as.factor('SIM')
+#SucSec.vsSec.bwa$comp <- as.factor('SEC')
+SucSec.vsSec.bwaUniq$comp <- as.factor('SEC')
+SucSec.vsSec.ngm$comp <- as.factor('SEC')
+
+#SucSec.vsSim.bwa$sample <- as.factor('SucSec')
+SucSec.vsSim.bwaUniq$sample <- as.factor('SucSec')
+SucSec.vsSim.ngm$sample <- as.factor('SucSec')
+#SucSec.vsSec.bwa$sample <- as.factor('SucSec')
+SucSec.vsSec.bwaUniq$sample <- as.factor('SucSec')
+SucSec.vsSec.ngm$sample <- as.factor('SucSec')
+
+#SucSec.vsSim.bwa$parental <- as.factor('SynthSec')
+SucSec.vsSim.bwaUniq$parental <- as.factor('SynthSec')
+SucSec.vsSim.ngm$parental <- as.factor('SynthSec')
+#SucSec.vsSec.bwa$parental <- as.factor('SynthSec')
+SucSec.vsSec.bwaUniq$parental <- as.factor('SynthSec')
+SucSec.vsSec.ngm$parental <- as.factor('SynthSec')
+
+SucSec.vsSim.bwa$mapper <- as.factor('BWA')
+SucSec.vsSim.bwaUniq$mapper <- as.factor('BWA-Uniq')
+SucSec.vsSim.ngm$mapper <- as.factor('NGM')
+SucSec.vsSec.bwa$mapper <- as.factor('BWA')
+SucSec.vsSec.bwaUniq$mapper <- as.factor('BWA-Uniq')
+SucSec.vsSec.ngm$mapper <- as.factor('NGM')
+
+all_mappers <- c(SucSec.vsSec.bwa,SucSec.vsSec.bwaUniq,SucSec.vsSec.ngm,SucSec.vsSim.bwa,SucSec.vsSim.bwaUniq,SucSec.vsSim.ngm)
+
+
+all_mappers.chr2L <- all_mappers.chr2L[all_mappers.chr2L@seqnames =='chr2L' ]
+
+```
+
+
+
+
+```{r echo=FALSE, include=FALSE}
+
+autoplot(all_mappers.chr2L, aes(y=ratio, color=mapper), geom='line') + facet_grid(seqname~., scale="free")  
+
+```
+
+
+
+
+### freebayes heterozygosity
+```{r echo=FALSE, include=FALSE}
+tenA_vs_droSim.zyggy.joint <- import.bedGraph("analysis_out/10A_vs_droSim1.bwa.joint.10A.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SucSec_vs_droSim.zyggy.joint<- import.bedGraph("analysis_out/SucSec_vs_droSim1.bwa.joint.SucSec.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR869587_vs_droSim.zyggy.joint<- import.bedGraph("analysis_out/SRR869587_vs_droSim1.bwa.joint.SRR869587.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR6426002_vs_droSim.zyggy.joint<- import.bedGraph("analysis_out/SRR6426002_vs_droSim1.bwa.joint.SRR6426002.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR5860570_vs_droSim.zyggy.joint<- import.bedGraph("analysis_out/SRR5860570_vs_droSim1.bwa.joint.SRR5860570.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+
+names(tenA_vs_droSim.zyggy.joint@elementMetadata ) <- c("count","zyg")
+names(SucSec_vs_droSim.zyggy.joint@elementMetadata)<- c("count","zyg")
+names(SRR869587_vs_droSim.zyggy.joint@elementMetadata)<- c("count","zyg")
+names(SRR6426002_vs_droSim.zyggy.joint@elementMetadata)<- c("count","zyg")
+names(SRR5860570_vs_droSim.zyggy.joint@elementMetadata)<- c("count","zyg")
+
+tenA_vs_droSim.zyggy.joint$sample <- as.factor('10A')
+SucSec_vs_droSim.zyggy.joint$sample <- as.factor('SucSec')
+SRR869587_vs_droSim.zyggy.joint$sample <- as.factor('SRR869587')
+SRR6426002_vs_droSim.zyggy.joint$sample <- as.factor('SRR6426002')
+SRR5860570_vs_droSim.zyggy.joint$sample <- as.factor('SRR5860570')
+
+
+tenA_vs_droSim.zyggy.joint$zyg <- as.factor(tenA_vs_droSim.zyggy.joint$zyg)
+SucSec_vs_droSim.zyggy.joint$zyg <- as.factor(SucSec_vs_droSim.zyggy.joint$zyg)
+SRR869587_vs_droSim.zyggy.joint$zyg <- as.factor(SRR869587_vs_droSim.zyggy.joint$zyg)
+SRR6426002_vs_droSim.zyggy.joint$zyg <- as.factor(SRR6426002_vs_droSim.zyggy.joint$zyg)
+SRR5860570_vs_droSim.zyggy.joint$zyg <- as.factor(SRR5860570_vs_droSim.zyggy.joint$zyg)
+
+tenA_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+SucSec_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+SRR869587_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+SRR6426002_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+SRR5860570_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+
+
+
+tenA_vs_droSim.zyggy.indiv <- import.bedGraph("analysis_out/10A_vs_droSim1.bwa.indiv.10A.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SucSec_vs_droSim.zyggy.indiv<- import.bedGraph("analysis_out/SucSec_vs_droSim1.bwa.indiv.SucSec.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR869587_vs_droSim.zyggy.indiv<- import.bedGraph("analysis_out/SRR869587_vs_droSim1.bwa.indiv.SRR869587.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR6426002_vs_droSim.zyggy.indiv<- import.bedGraph("analysis_out/SRR6426002_vs_droSim1.bwa.indiv.SRR6426002.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR5860570_vs_droSim.zyggy.indiv<- import.bedGraph("analysis_out/SRR5860570_vs_droSim1.bwa.indiv.SRR5860570.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+
+names(tenA_vs_droSim.zyggy.indiv@elementMetadata ) <- c("count","zyg")
+names(SucSec_vs_droSim.zyggy.indiv@elementMetadata)<- c("count","zyg")
+names(SRR869587_vs_droSim.zyggy.indiv@elementMetadata)<- c("count","zyg")
+names(SRR6426002_vs_droSim.zyggy.indiv@elementMetadata)<- c("count","zyg")
+names(SRR5860570_vs_droSim.zyggy.indiv@elementMetadata)<- c("count","zyg")
+
+tenA_vs_droSim.zyggy.indiv$sample <- as.factor('10A')
+SucSec_vs_droSim.zyggy.indiv$sample <- as.factor('SucSec')
+SRR869587_vs_droSim.zyggy.indiv$sample <- as.factor('SRR869587')
+SRR6426002_vs_droSim.zyggy.indiv$sample <- as.factor('SRR6426002')
+SRR5860570_vs_droSim.zyggy.indiv$sample <- as.factor('SRR5860570')
+
+
+tenA_vs_droSim.zyggy.indiv$zyg <- as.factor(tenA_vs_droSim.zyggy.indiv$zyg)
+SucSec_vs_droSim.zyggy.indiv$zyg <- as.factor(SucSec_vs_droSim.zyggy.indiv$zyg)
+SRR869587_vs_droSim.zyggy.indiv$zyg <- as.factor(SRR869587_vs_droSim.zyggy.indiv$zyg)
+SRR6426002_vs_droSim.zyggy.indiv$zyg <- as.factor(SRR6426002_vs_droSim.zyggy.indiv$zyg)
+SRR5860570_vs_droSim.zyggy.indiv$zyg <- as.factor(SRR5860570_vs_droSim.zyggy.indiv$zyg)
+
+tenA_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+SucSec_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+SRR869587_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+SRR6426002_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+SRR5860570_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+
+
+
+all_zyg <- c(SRR5860570_vs_droSim.zyggy.indiv,SRR5860570_vs_droSim.zyggy.joint,SRR6426002_vs_droSim.zyggy.indiv,SRR6426002_vs_droSim.zyggy.joint,SRR869587_vs_droSim.zyggy.indiv,SRR869587_vs_droSim.zyggy.joint,SucSec_vs_droSim.zyggy.indiv,SucSec_vs_droSim.zyggy.joint,tenA_vs_droSim.zyggy.indiv,tenA_vs_droSim.zyggy.joint)
+
+all_zyg.chr2L <- all_zyg.chr2L[all_zyg.chr2L@seqnames =='chr2L' ]
+
+```
+
+```{r echo=FALSE, include=FALSE}
+
+autoplot(all_zyg.chr2L, aes(y=ratio, color=sample, linetype=caller), geom='line') + facet_grid(seqname~zyg, scale="free")  
+```
+
+
+
+### freebayes approach? 
+
+
+
+```{r include=FALSE}
+citation("tidyverse")
+citation("rtracklayer")
+citation("ggbio")
+
+```
