@@ -302,12 +302,13 @@ rule RGfix_group:
 #		nicole=["mapped_reads/%s/%s_vs_dm6.RG%s.%s.sort.bam" % pear for pear in [ tuple([v, v, str(vcf_subset_nicole.index(v)), 'bwa']) for v in vcf_subset_nicole ] ]
 #		[lambda wildcards: "mapped_reads/%s/%s_vs_%s.RG%s.%s.sort.bam" % pear for pear in [ tuple([v, v, wildcards.ref_genome, str(samps_by_group(wildcards.group).index(v)), 'bwa']) for v in samps_by_group(wildcards.group) ] ]
 		potato = demand_rgFix_by_group,
+	params:
+		runmem_gb=8,
+		runtime="6:00:00"
 	output:
 		"{group}_vs_{ref_genome}_RG_fixed.flag"
 	shell:
 		"touch {output}"
-
-
 
 rule vcf_indiv:
 	input:
@@ -410,6 +411,9 @@ rule nicole_flies_reanalysis:
 		fly_finals = ["analysis_out/REC7_and_PARG1_vs_dm6.bwa.dm6_w100000_s10000.windowCounts.bed", "analysis_out/REC7_and_PARC1_vs_dm6.bwa.dm6_w100000_s10000.windowCounts.bed", "analysis_out/REC7.bwa.joint.sharedWith.PARC1.bwa.joint.vs_dm6.vcfNaive.dm6_w100000_s10000.windowCounts.bed", "analysis_out/REC7.bwa.joint.sharedWith.PARG1.bwa.joint.vs_dm6.vcfNaive.dm6_w100000_s10000.windowCounts.bed"]
 	output:
 		flg = "nicoleFlies.flag"
+	params:
+		runmem_gb=1,
+		runtime="48:00:00"
 	shell:
 		"touch {output.flg}"
 
@@ -425,6 +429,9 @@ rule build_PsiSeq2_analysis_withRich:
 		different_mapping_strategies = ["analysis_out/SucSec_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSec_vs_droSim1.bwaUniq.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSec_vs_droSim1.ngm.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSim_vs_droSec1.bwaUniq.lift2dm6.dm6_w100000_s10000.windowCounts.bed","analysis_out/SucSec_and_SynthSim_vs_droSec1.ngm.lift2dm6.dm6_w100000_s10000.windowCounts.bed"],
 		heterozygosity_results = ["analysis_out/10A_vs_droSim1.bwa.indiv.10A.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/10A_vs_droSim1.bwa.joint.10A.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR5860570_vs_droSim1.bwa.indiv.SRR5860570.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR5860570_vs_droSim1.bwa.joint.SRR5860570.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR6426002_vs_droSim1.bwa.indiv.SRR6426002.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR6426002_vs_droSim1.bwa.joint.SRR6426002.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR869587_vs_droSim1.bwa.indiv.SRR869587.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SRR869587_vs_droSim1.bwa.joint.SRR869587.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SucSec_vs_droSim1.bwa.indiv.SucSec.droSim1_w100000_s10000.windowedZygosity.bed","analysis_out/SucSec_vs_droSim1.bwa.joint.SucSec.droSim1_w100000_s10000.windowedZygosity.bed"],
 		variant_based_results = [],
+	params:
+		runmem_gb=1,
+		runtime="56:00:00"
 
 	output:
 		pdf_report = "PsiSeq2.pdf"
