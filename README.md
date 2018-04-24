@@ -69,7 +69,7 @@ R with markdown dependencies
 Analysis of simulans/sechellia introgression, including Rich's sugarflies:
 
 ```
-snakemake --snakefile Build_PsiSeq2_Results.snakefile --config PsiSeq2.yaml -p PsiSeq2.pdf 
+snakemake --snakefile Build_PsiSeq2_Results.snakefile --config PsiSeq2.yaml --cluster "sbatch --time={params.runtime} -n 4 --mem={params.runmem_gb}G "  -p PsiSeq2.pdf 
 ```
 
 

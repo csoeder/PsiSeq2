@@ -15,16 +15,7 @@ chain_dict_by_destination = config['lift_genomes']
 #sea_dubya_dee=config['cwd']
 samps2process = [c['name'] for c in config['data_sets'] if c['pedigree'] == 'offspring' ]
 
-# def get_input_files(sample_name, treatment):
-# 	#collect files
-# 	result = []
-# 	directory = 'FASTQs/%s/%s/' % tuple([treatment, sample_name])
-# 	for fname in os.listdir(directory):
-# 		if fname.endswith('.fastq') or fname.endswith('.fq'):
-# 			result.append(os.path.join(directory, fname))
-# 	result = list(sorted(result))
-# 	#sanity chex go here
-# 	return result
+
 
 def get_input_files(directory):
 	#collect files
@@ -37,16 +28,38 @@ def get_input_files(directory):
 	#sanity chex go here
 	return result
 
+def samps_by_group(grup):
+	subset_out = []
+	grupt = {}
+	for c in config['data_sets']:
+		try:
+			grupt[c['name']] = c['group']
+		except KeyError:
+			pass
+	for k in grupt.keys():
+		if grupt[k] == grup:
+			subset_out += [k]
+	subset_out.sort()
+	return subset_out
 
-rule all:
-	input:
-		expand("analysis_out/{sample}_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", sample= [k for k,v in sample_by_name.items() if v['pedigree'] == 'offspring']),
-		expand("analysis_out/{sample}_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", sample= [k for k,v in sample_by_name.items() if v['pedigree'] == 'offspring'])
+def return_group_by_samp(wildcards):
+	try:
+		return sample_by_name[wildcards.sample]['group']
+	except KeyError:
+		raise KeyError("%s has no group listed - edit the config file to add one" % tuple([sample]))
+
+
+# rule all:
+# 	input:
+# 		expand("analysis_out/{sample}_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", sample= [k for k,v in sample_by_name.items() if v['pedigree'] == 'offspring']),
+# 		expand("analysis_out/{sample}_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", sample= [k for k,v in sample_by_name.items() if v['pedigree'] == 'offspring'])
 
 rule synthetic_reads_se:
 	output: 
 		reads='FASTQs/{treatment}/{sample}/{sample}.fq'
 	params:
+		runmem_gb=8,
+		runtime="12:00:00",
 		platform='HS25',
 		read_len=100,
 		cov_depth=20
@@ -69,7 +82,9 @@ rule synthetic_reads_pe:
 		read_len=100,
 		insert_mean=200,
 		insert_sd=10,
-		cov_depth=20
+		cov_depth=20,
+		runmem_gb=8,
+		runtime="12:00:00"
 	run:
 		ref_genome = ref_genome_by_name[sample_by_name[wildcards.sample]['pedigree']]['path']
 		if sample_by_name[wildcards.sample]['paired']:
@@ -97,6 +112,10 @@ rule bwa_sam:
 		bam='mapped_reads/{sample}/{sample}_vs_{parent}.bwa.sort.bam',
 	input:
 		check_for_reads
+	threads: 4
+	params:
+		runmem_gb=8,
+		runtime="12:00:00"	
 	run:
 		read_files = get_input_files(sample_by_name[wildcards.sample]['path'])
 		paired_reads = sample_by_name[wildcards.sample]['paired']
@@ -119,6 +138,10 @@ rule bwa_uniqueUpOnIt:
 	params:
 		quality="-q 20 -F 0x0100 -F 0x0200 -F 0x0300 -F 0x04",
 		uniqueness="XT:A:U.*X0:i:1.*X1:i:0"
+	threads: 4
+	params:
+		runmem_gb=8,
+		runtime="3:00:00"
 	run:
 		ref_genome = ref_genome_by_name[wildcards.parent]['path']	
 		shell('samtools view {params.quality} {input.bam_in} | grep -E {params.uniqueness} | samtools view -bS -T {ref_genome} - | samtools sort -o {output.bam_out} - ')
@@ -132,7 +155,9 @@ rule NGM_sam:
 		reads=check_for_reads
 	params:
 		strat=1,
-		topn=1
+		topn=1,
+		runmem_gb=8,
+		runtime="12:00:00"
 	run:
 		ref_genome = ref_genome_by_name[wildcards.parent]['path']
 		paired_reads = sample_by_name[wildcards.sample]['paired']
@@ -149,6 +174,9 @@ rule mpiler:
 		sorted_bam='mapped_reads/{sample}/{sample}_vs_{parent}.{aligner}.sort.bam'
 	output:
 		mpile='mapped_reads/{sample}/{sample}_vs_{parent}.{aligner}.mpileup'
+	params:
+		runmem_gb=8,
+		runtime="3:00:00"
 	run:
 		ref_genome = ref_genome_by_name[wildcards.parent]['path']		
 		shell(
@@ -164,15 +192,21 @@ rule shared_snipper:
 		shared_snps='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.sharedSnps.out'
 	params:
 		minCov=5,
-		minFrac=0.9
+		minFrac=0.9,
+		runmem_gb=32,
+		runtime="48:00:00"
 	shell:
 		"python scripts/shared_snps.py -c {params.minCov} -f {params.minFrac} {input.offspring_mpile} {input.otherparent_mpile} {output.shared_snps}"		
+
 
 rule out2bed:
 	input:
 		snps_out='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.sharedSnps.out'
 	output:
 		snps_bed='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.sharedSnps.bed'
+	params:
+		runmem_gb=8,
+		runtime="3:00:00"
 	shell:
 		'sh scripts/out2bed.sh {input.snps_out} {output.snps_bed}'
 
@@ -182,6 +216,9 @@ rule lifter:
 	output:
 		lifted='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.lift2{lift_genome}.sharedSnps.bed',
 		too_heavy='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.{lift_genome}.sharedSnps.tooHeavy'
+	params:
+		runmem_gb=8,
+		runtime="3:00:00"
 	run:
 		chain = chain_dict_by_destination[wildcards.lift_genome][wildcards.parent]
 		shell(
@@ -201,12 +238,18 @@ rule heavy2bed:
 		heavy='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.{lift_genome}.sharedSnps.tooHeavy'
 	output:
 		heavyBed='variant_comparisons/{sample}_and_{compare}_vs_{parent}.{aligner}.{lift_genome}.sharedSnps.tooHeavy.bed' 
+	params:
+		runmem_gb=8,
+		runtime="3:00:00"
 	shell:
 		"cat {input.heavy} |  grep -v '#' > {output.heavyBed}"
 
 rule window_maker:
 	output:
 		windowed='{ref_genome}_w{window_size}_s{slide_rate}.windows.bed'
+	params:
+		runmem_gb=8,
+		runtime="1:00:00"
 	run:
 		fai_path = ref_genome_by_name[wildcards.ref_genome]['fai'],
 		shell(
@@ -219,13 +262,19 @@ rule window_counter:
 		snps='variant_comparisons/{snp_prefix}.sharedSnps.bed'
 	output:
 		window_counts='analysis_out/{snp_prefix}.{window_prefix}.windowCounts.bed'
+	params:
+		runmem_gb=8,
+		runtime="1:00:00"
+
 	shell:
 		'bedtools map -c 5,5 -o sum,count -null 0 -a {input.windows} -b {input.snps} > {output.window_counts}'
 
 
 
-vcf_subset = ["10A", "SucSec", "SRR869587", "SRR6426002", "SRR5860570"]
-vcf_subset.sort()
+# vcf_subset_psiseq2 = ["10A", "SucSec", "SRR869587", "SRR6426002", "SRR5860570"]
+# vcf_subset_psiseq2.sort()
+# vcf_subset_nicole = ["PARC1", "PARG1", "REC7"]
+# vcf_subset_nicole.sort()
 
 ruleorder: RGfix_single > bwa_sam
 
@@ -237,17 +286,27 @@ rule RGfix_single:
 	output:
 		"mapped_reads/{sample}/{sample}_vs_{parent}.RG{id}.{aligner}.sort.bam"
 	params:
-		rg="RGLB=lib1 RGPL=illumina RGPU={sample} RGSM={sample} RGID={id}"
+		rg="RGLB=lib1 RGPL=illumina RGPU={sample} RGSM={sample} RGID={id}",
+		runmem_gb=8,
+		runtime="6:00:00"
 	shell:
 		"java -jar ~/modules/picard/build/libs/picard.jar AddOrReplaceReadGroups I={input} O={output} {params.rg} VALIDATION_STRINGENCY=LENIENT"
 
-rule RGfix_all:
+
+def demand_rgFix_by_group(wildcards):
+	return [ "mapped_reads/%s/%s_vs_%s.RG%s.%s.sort.bam" % pear for pear in [ tuple([v, v, wildcards.ref_genome, str(samps_by_group(wildcards.group).index(v)), 'bwa']) for v in samps_by_group(wildcards.group) ] ]
+
+rule RGfix_group:
 	input:
-		["mapped_reads/%s/%s_vs_droSim1.RG%s.%s.sort.bam" % pear for pear in [ tuple([v, v, str(vcf_subset.index(v)), 'bwa']) for v in vcf_subset ] ]
+#		psiseq2=["mapped_reads/%s/%s_vs_droSim1.RG%s.%s.sort.bam" % pear for pear in [ tuple([v, v, str(vcf_subset_psiseq2.index(v)), 'bwa']) for v in vcf_subset_psiseq2 ] ],
+#		nicole=["mapped_reads/%s/%s_vs_dm6.RG%s.%s.sort.bam" % pear for pear in [ tuple([v, v, str(vcf_subset_nicole.index(v)), 'bwa']) for v in vcf_subset_nicole ] ]
+#		[lambda wildcards: "mapped_reads/%s/%s_vs_%s.RG%s.%s.sort.bam" % pear for pear in [ tuple([v, v, wildcards.ref_genome, str(samps_by_group(wildcards.group).index(v)), 'bwa']) for v in samps_by_group(wildcards.group) ] ]
+		potato = demand_rgFix_by_group,
 	output:
-		"all_RG_fixed.flag"
+		"{group}_vs_{ref_genome}_RG_fixed.flag"
 	shell:
 		"touch {output}"
+
 
 
 rule vcf_indiv:
@@ -257,26 +316,39 @@ rule vcf_indiv:
 	output:
 		vcf_out = "variant_comparisons/{prefix}_vs_{ref_genome}.{aligner}.indiv.{sample}.vcf"
 	params:
-		freebayes="--standard-filters --min-coverage 4"
+		freebayes="--standard-filters --min-coverage 4",
+		runmem_gb=8,
+		runtime="12:00:00"
 	run:
 		path2ref = ref_genome_by_name[wildcards.ref_genome]['path']
 		shell("freebayes {params.freebayes} -f {path2ref} {input.bam} | vcftools --remove-indels --vcf - --recode --recode-INFO-all --stdout  > {output.vcf_out}")
 
 
+ruleorder: call_indiv_from_joint_vcf > vcf_joint
+
+
 rule vcf_joint:
-	input: rules.RGfix_all.input
+	input: 
+		flag_in="{group}_vs_{ref_genome}_RG_fixed.flag"
 	output:
-		joint_vcf="variant_comparisons/allTogetherNow_vs_droSim1.vcf"
+		joint_vcf="variant_comparisons/{group}_vs_{ref_genome}.vcf"
 #	cluster:--mem=16G -n 4 -t 2:00:00 
 	params:
-		freebayes="--standard-filters --min-coverage 4"
-	shell:
-		"freebayes {params.freebayes} -f /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/droSim1.fa {input} | vcftools --remove-indels --vcf - --recode --recode-INFO-all --stdout  > {output.joint_vcf}"
+		freebayes="--standard-filters --min-coverage 4",
+		runmem_gb=8,
+		runtime="12:00:00"
+	run:
+		path2ref = ref_genome_by_name[wildcards.ref_genome]['path']
+		run("freebayes {params.freebayes} -f {path2ref} {input} | vcftools --remove-indels --vcf - --recode --recode-INFO-all --stdout  > {output.joint_vcf}")
 
 rule call_indiv_from_joint_vcf:
-	input: rules.vcf_joint.output
+	input:
+		lambda wildcards: "variant_comparisons/%s_vs_%s.vcf" % tuple([return_group_by_samp(wildcards), wildcards.ref_genome])
 	output:
-		vcf_out = "variant_comparisons/{prefix}.joint.{sample}.vcf"	
+		vcf_out = "variant_comparisons/{prefix}_vs_{ref_genome}.{aligner}.joint.{sample}.vcf"	
+	params:
+		runmem_gb=8,
+		runtime="1:00:00"
 	shell:
 		"vcftools --indv {wildcards.sample} --vcf {input} --recode --recode-INFO-all --stdout > {output.vcf_out}"
 
@@ -289,6 +361,9 @@ rule zyggy_stardust:
 	output:
 		#bed_out = "{vcf_prefix}.{window_prefix}.{who}.windowedZygosity.bed"
 		bed_out = "analysis_out/{vcf_prefix}.{window_prefix}.windowedZygosity.bed"
+	params:
+		runmem_gb=8,
+		runtime="6:00:00"
 	shell:
 		#"sh scripts/vcf_zyggy.sh {input.vcf_in} {input.windoze} {output.bed_out} {wildcards.who}"
 		"sh scripts/vcf_zyggy.sh {input.vcf_in} {input.windoze} {output.bed_out}"
@@ -306,6 +381,9 @@ rule naive_vcf_compare:
 #		vcf_parent = "variant_comparisons/{vcf_prefix_p}.{call_type_p}.{sample_p}.vcf",
 #		vcf_offspring = "variant_comparisons/{vcf_prefix_o}.{call_type_o}.{sample_o}.vcf",
 #		windoze = "{window_prefix}.windows.bed",
+	params:
+		runmem_gb=8,
+		runtime="12:00:00"
 	output:
 		vcf_shared_snps_bed = "variant_comparisons/{sample_o}.{mapper_o}.{caller_o}.sharedWith.{sample_p}.{mapper_p}.{caller_p}.vs_{genome}.vcfNaive.sharedSnps.bed"
 	shell:
@@ -323,6 +401,17 @@ rule naive_vcf_compare:
 
 #http://bedops.readthedocs.io/en/latest/content/reference/set-operations/bedops.html#bedops
 
+
+
+
+
+rule nicole_flies_reanalysis:
+	input:
+		fly_finals = ["analysis_out/REC7_and_PARG1_vs_dm6.bwa.dm6_w100000_s10000.windowCounts.bed", "analysis_out/REC7_and_PARC1_vs_dm6.bwa.dm6_w100000_s10000.windowCounts.bed", "analysis_out/REC7.bwa.joint.sharedWith.PARC1.bwa.joint.vs_dm6.vcfNaive.dm6_w100000_s10000.windowCounts.bed", "analysis_out/REC7.bwa.joint.sharedWith.PARG1.bwa.joint.vs_dm6.vcfNaive.dm6_w100000_s10000.windowCounts.bed"]
+	output:
+		flg = "nicoleFlies.flag"
+	shell:
+		"touch {output.flg}"
 
 
 
@@ -374,6 +463,17 @@ rule build_PsiSeq2_analysis_withoutRich:
 # 		bed_out="{vcf_prefix}.{windows_prefix}.windowCounts.zygosity.bed"
 # 	run:
 # 		"sh scripts/vcf_zyggy.sh {input.vcf_in} {input.windoze} {output.bed_out} {wildcards.who}"
+
+
+
+
+
+
+
+
+
+
+
 
 
 

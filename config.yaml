@@ -4,6 +4,7 @@ data_sets:
       pedigree: droSec1
       treatment: parent
       type: empirical
+      group: PsiSeq2
       path: FASTQs/parent/SucSec/
     - name: SucSim
       paired: False
@@ -46,12 +47,14 @@ data_sets:
       pedigree: droSec1
       treatment: parent
       type: empirical
+      group: PsiSeq2
       path: FASTQs/parent/SRR6426002/
     - name: SRR5860570
       paired: True
       pedigree: droSec1
       treatment: parent
       type: empirical
+      group: PsiSeq2
       path: FASTQs/parent/SRR5860570/
     - name: SRR303333
       paired: False
@@ -64,6 +67,7 @@ data_sets:
       pedigree: offspring
       treatment: selection
       type: empirical
+      group: PsiSeq2
       path: FASTQs/selection/10A/
     - name: 10B
       paired: True
@@ -100,18 +104,21 @@ data_sets:
       pedigree: dm6
       treatment: parent
       type: empirical
+      group: nicole
       path: FASTQs/parent/PARC1/
     - name: PARG1
       paired: True
       pedigree: dm6
       treatment: parent
       type: empirical
+      group: nicole
       path: FASTQs/parent/PARG1/
     - name: REC7
       paired: True
       pedigree: dm6
       treatment: selection
       type: control
+      group: nicole
       path: FASTQs/control/REC7/
 
 reference_genomes:
