@@ -47,6 +47,8 @@ R with markdown dependencies
 ├── PsiSeq2.noRich.yaml
 		snakemake config file for standard PsiSeq2 analysis, without Rich's data
 ├── scripts/
+│   ├── bin_by_SNP.py
+			accepts shared SNP output, bins result by SNP count. 
 │   ├── bwa_pe.sh
 			paired-end BWA aligner script
 │   ├── bwa_se.sh

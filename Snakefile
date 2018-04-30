@@ -1,21 +1,12 @@
 
-
-# borrowed from examples at https://bitbucket.org/holtgrewe/snakemake/
-
 configfile: 'config.yaml'
 
-
-
 #depends: bedtools samtools bwa vcftools freebayes
-
 
 sample_by_name = {c['name'] : c for c in config['data_sets']}
 ref_genome_by_name = { g['name'] : g for g in config['reference_genomes']}
 chain_dict_by_destination = config['lift_genomes']
-#sea_dubya_dee=config['cwd']
 samps2process = [c['name'] for c in config['data_sets'] if c['pedigree'] == 'offspring' ]
-
-
 
 def get_input_files(directory):
 	#collect files
@@ -49,10 +40,7 @@ def return_group_by_samp(wildcards):
 		raise KeyError("%s has no group listed - edit the config file to add one" % tuple([sample]))
 
 
-# rule all:
-# 	input:
-# 		expand("analysis_out/{sample}_and_SynthSim_vs_droSec1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", sample= [k for k,v in sample_by_name.items() if v['pedigree'] == 'offspring']),
-# 		expand("analysis_out/{sample}_and_SynthSec_vs_droSim1.lift2dm6.dm6_w100000_s10000.windowCounts.bed", sample= [k for k,v in sample_by_name.items() if v['pedigree'] == 'offspring'])
+
 
 rule synthetic_reads_se:
 	output: 
@@ -137,11 +125,10 @@ rule bwa_uniqueUpOnIt:
 		bam_in='mapped_reads/{sample}/{sample}_vs_{parent}.bwa.sort.bam'
 	params:
 		quality="-q 20 -F 0x0100 -F 0x0200 -F 0x0300 -F 0x04",
-		uniqueness="XT:A:U.*X0:i:1.*X1:i:0"
-	threads: 4
-	params:
+		uniqueness="XT:A:U.*X0:i:1.*X1:i:0",
 		runmem_gb=8,
 		runtime="3:00:00"
+	threads: 4
 	run:
 		ref_genome = ref_genome_by_name[wildcards.parent]['path']	
 		shell('samtools view {params.quality} {input.bam_in} | grep -E {params.uniqueness} | samtools view -bS -T {ref_genome} - | samtools sort -o {output.bam_out} - ')
@@ -270,6 +257,13 @@ rule window_counter:
 		'bedtools map -c 5,5 -o sum,count -null 0 -a {input.windows} -b {input.snps} > {output.window_counts}'
 
 
+rule SNP_binner:
+	input:
+		snps='variant_comparisons/{snp_prefix}.sharedSnps.out'
+	output:
+		snp_bins='analysis_out/{snp_prefix}.b{bin_size}s{slide_rate}.snpBins.bed'
+	shell:
+		"python scripts/bin_by_SNP.py {input.snps} {output.snp_bins} --bin_size {wildcards.bin_size} --slide_rate {wildcards.slide_rate}"
 
 # vcf_subset_psiseq2 = ["10A", "SucSec", "SRR869587", "SRR6426002", "SRR5860570"]
 # vcf_subset_psiseq2.sort()
