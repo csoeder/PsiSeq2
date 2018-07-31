@@ -88,7 +88,7 @@ def mismatch_chooser(site_dict):
 	choice = site_dict['ref_base']
 	meta = None # 	We may want to later report information on polymorphism
 	for bass in site_dict['base_dict'].keys():
-		if int(float(site_dict['pileup_cov'])) > minCov and site_dict['base_dict'][bass]/float(site_dict['pileup_cov']) >= minFrac :
+		if int(float(site_dict['pileup_cov'])) >= minCov and site_dict['base_dict'][bass]/float(site_dict['pileup_cov']) >= minFrac :
 			choice = bass
 	return choice, meta
 
@@ -124,7 +124,7 @@ def contig_dict_comparator(parent_dict, hybrid_dict):
 				parent_minidict = parent_dict[contig]['position_dict'].pop(parent_pos)
 			if minicount % 10000 == 0 and args.verbose:
 				print( "%s parent mismatch sites investigated of %s!" % tuple([minicount, total_count]))
-		print( "Contig %s of %s compared..." % tuple([shared_contig_list.index(contig), len(shared_contig_list)]))
+		print( "Contig %s of %s (%s) compared..." % tuple([shared_contig_list.index(contig), len(shared_contig_list), contig]))
 		print()
 	return comparison_dict
 

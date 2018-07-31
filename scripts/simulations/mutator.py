@@ -1,13 +1,14 @@
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from random import randint, choice
+from random import randint, choice, seed
 import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("reference_genome", help="reference genome to be mutated")
 parser.add_argument("custom_genome", help="output genome, with SNPs added")
 parser.add_argument("-m", "--mutation_rate", help="SNP rate, per bp; default 1%% ", type=float, default=0.01 )
+parser.add_argument("-s", "--set_seed", help="set RNG seed; default  ", type=int, default=None )
 
 args = parser.parse_args()
 
@@ -16,7 +17,7 @@ args = parser.parse_args()
 fasta_in = args.reference_genome
 fasta_out = args.custom_genome
 mut_rate = args.mutation_rate
-
+seed(args.set_seed)
 
 
 #samtools faidx /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_melanogaster/dm6.fa chr2L > dm6.chr2L.fa
@@ -25,9 +26,9 @@ chroms_out = []
 
 for std_chrom in SeqIO.parse(fasta_in, "fasta"):
 
-	std_chrom = std_chrom.seq.tostring()
 	std_id = std_chrom.id
 	std_name = std_chrom.name
+	std_chrom = str(std_chrom.seq)
 
 	snp_sites = []
 

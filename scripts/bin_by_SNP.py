@@ -21,7 +21,7 @@ def parse_Snps(phial_in):
 	parser = open(phial_in, 'r')
 	for line in parser.readlines():
 		split_line = line.split('\t')
-		comparison_dict[split_line[0]].append([int(split_line[1]), float(split_line[3])])
+		comparison_dict[split_line[0]].append([int(split_line[1]), float(split_line[4])])
 	parser.close()
 	return comparison_dict
 
