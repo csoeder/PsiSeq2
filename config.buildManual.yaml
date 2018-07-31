@@ -1,0 +1,41 @@
+data_sets:
+    - name: SynthSec
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/SynthSec/
+    - name: SynthSim
+      paired: True
+      pedigree: droSim1
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/SynthSim/
+    - name: SRR303333
+      paired: False
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+      path: FASTQs/selection/SRR303333/
+      group: PsiSeq2
+      SRA: SRR303333
+
+reference_genomes:
+    - name: droSim1
+      species: drosophila simulans
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/droSim1.fa
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/droSim1.fa.fai
+    - name: droSec1
+      species: drosophila sechellia
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/droSec1.fa
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/droSec1.fa.fai
+    - name: dm6
+      species: drosophila melanogaster
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_melanogaster/dm6.fa
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_melanogaster/dm6.fa.fai
+
+lift_genomes:
+      dm6:
+            droSec1: /proj/cdjones_lab/Genomics_Data_Commons/genomes/LiftOver/droSec1ToDm6.over.chain
+            droSim1: /proj/cdjones_lab/Genomics_Data_Commons/genomes/LiftOver/droSim1ToDm6.over.chain
+
