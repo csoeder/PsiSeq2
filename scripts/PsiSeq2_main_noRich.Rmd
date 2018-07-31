@@ -1,0 +1,2650 @@
+---
+title: "PsiSeq2_mainResults"
+author: "Charlie Soeder"
+date: "7/24/2018"
+output:
+  pdf_document:
+    number_sections: true
+    toc: true
+    toc_depth: 5
+bibliography: refs.bibTex
+
+---
+
+
+```{r echo=FALSE, include=FALSE}
+source("http://bioconductor.org/biocLite.R")
+#biocLite("BiocUpgrade")
+#biocLite("HelloRanges")
+library("tidyverse")
+library("rtracklayer")
+#library("forecast")
+library("ggbio")
+library("grid")
+library("gridExtra")
+library("changepoint")
+library("metap")
+library("viridis")
+library("magrittr")
+
+
+```
+```{r setup, include=FALSE}
+#opts_chunk$set(echo = FALSE)
+#opts_chunk$set(root.dir = "/proj/cdjones_lab/csoeder/PsiSeq2/")
+#opts_chunk$set(root.dir = "/Users/csoeder/Research/PSIseq/PsiSeq2/PsiSeq2_packaged/")
+knitr::opts_knit$set(root.dir = "/proj/cdjones_lab/csoeder/PsiSeq2/")
+
+```
+
+
+# Introduction
+
+PSISeq [@Earley2011] is a method for uncovering the genetic basis for a phenotype. The basic procedure is to select for a trait while back-crossing to a genomic background lacking that trait, then sequencing and comparing the offspring genome to the parental lines. In particular, this is applied to the drosophila sechellia/simulans group, which can form hybrids and have complex behavioral differences. 
+
+Here, the original code and data are repackaged, and tested on several new sequenced lines.
+
+# Materials & Methods
+
+## data:
+
+* Software
+  + short-read mappers (BWA, NGM)
+  + read simulation (ART)
+  + variant calling (Freebayes) 
+  + misc file manipulation & processing (samtools, bedtools, bedops, vcftools, UCSC liftover)
+  + custom python scripts
+  + Snakemake workflow 
+  + R utilities (Markdown, rtracklayer, ggbio, tidyverse)
+  + Upstream QA/QC (FASTQC, FASTX-Toolkit)
+
+* Reference Genomes
+    + droSim1, droSec1 (UCSC Genome Browser)
+    + dsimr2, dsecr1 (FlyBase) 
+    + dsecDM, dsimDM ([@Miller2018])
+* DNA-Seq reads
+    + [@Earley2011] reads from selection experiment (SRR303333)
+    + New reads frm selection experiment: three biological replicates (10,13,17) with two technical replicates each (A,B)
+    + Synthetic reads simulated from the reference genomes using ART
+    + Control Sechellia reads from Rich (SucSec) and NCBI (SRR869587, SRR6426002, SRR5860570)
+    + Simulans reads from Rich (SucSim)
+* Software
+    + short-read mappers (BWA, NGM)
+    + read simulation (ART)
+    + variant calling (Freebayes) 
+    + misc file manipulation & processing (samtools, bedtools, bedops, vcftools, UCSC liftover)
+    + custom python scripts
+    + Snakemake workflow 
+    + R utilities (Markdown, rtracklayer, ggbio, tidyverse)
+    + Upstream QA/QC (FASTQC, FASTX-Toolkit)  
+*Include info about depth, read number, etc?*
+
+## methods:
+
+* Basic PSI-Seq algorithm reimplemented and applied to test data
+* Various diagnostics run on a artefact on chr2L
+
+Selected lines were produced by mating sechellia with simulans, selecting for avoidance of morinda fruit (ie, for simulans-like behavior), then backcrossing to sechellia. 
+
+
+
+
+
+
+
+# Results
+
+## Proof-of-concept simulation
+
+
+
+## Reanalysis of 2011 data
+
+In the first pass of reanalysis, a selected line was mapped to the (UCSC) reference genomes, and the pileups compared. A site was considered to be a "potential" informative SNP if the parental pileup contains a mismatch there. If the offspring shares the same mismatch, that SNP is called "actual". The genome is split into sliding windows (100kb wide, slid by 10kb), the potential and actual SNPs are tallied per window, and their ratio calculated. This gives a measure of divergence from the reference genome being mapped to.  Because the droSec1 genome is relatively fragmented and because the comparisons need to be done on a common coordinate system, the the variants are remapped to the melanogaster dm6 reference using UCSC LiftOver.
+
+~Here is the line mapped to the droSim1 reference genome; synthetic reads were also simulated from the droSec1 reference, since the parent flies themselves were not sequenced. The vertical axis represents SNP count vs droSim1; more shared SNPs between the parental line and the backcrossed line suggests more sechellia character.~
+
+
+## Past Experimental + Controls
+
+No control lines were prepared by backcrossing without selection in [@Earley2011]  Here, Sechellia reads from NCBI (SRR869587, SRR6426002, SRR5860570) were used as stand-ins and processed in the same manner as the selection line (SRR303333).
+
+```{r echo=FALSE}
+
+lifted.SRR869587.vsSim <- import.bedGraph("analysis_out/SRR869587_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR869587.vsSec <- import.bedGraph("analysis_out/SRR869587_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR6426002.vsSim <- import.bedGraph("analysis_out/SRR6426002_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR6426002.vsSec <- import.bedGraph("analysis_out/SRR6426002_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR5860570.vsSim <- import.bedGraph("analysis_out/SRR5860570_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR5860570.vsSec <- import.bedGraph("analysis_out/SRR5860570_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+
+names(lifted.SRR869587.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR6426002.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR5860570.vsSim@elementMetadata) <- c('actual', 'potential')
+lifted.SRR869587.vsSim$ratio <- lifted.SRR869587.vsSim$actual/lifted.SRR869587.vsSim$potential
+lifted.SRR6426002.vsSim$ratio <- lifted.SRR6426002.vsSim$actual/lifted.SRR6426002.vsSim$potential
+lifted.SRR5860570.vsSim$ratio <- lifted.SRR5860570.vsSim$actual/lifted.SRR5860570.vsSim$potential
+lifted.SRR869587.vsSim$comp <-as.factor("SIM")
+lifted.SRR6426002.vsSim$comp <-as.factor("SIM")
+lifted.SRR5860570.vsSim$comp <-as.factor("SIM")
+lifted.SRR869587.vsSim$sample <-as.factor("SRR869587")
+lifted.SRR6426002.vsSim$sample <-as.factor("SRR6426002")
+lifted.SRR5860570.vsSim$sample <-as.factor("SRR5860570")
+names(lifted.SRR869587.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR6426002.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR5860570.vsSec@elementMetadata) <- c('actual', 'potential')
+lifted.SRR869587.vsSec$ratio <- lifted.SRR869587.vsSec$actual/lifted.SRR869587.vsSec$potential
+lifted.SRR6426002.vsSec$ratio <- lifted.SRR6426002.vsSec$actual/lifted.SRR6426002.vsSec$potential
+lifted.SRR5860570.vsSec$ratio <- lifted.SRR5860570.vsSec$actual/lifted.SRR5860570.vsSec$potential
+lifted.SRR869587.vsSec$comp <-as.factor("SEC")
+lifted.SRR6426002.vsSec$comp <-as.factor("SEC")
+lifted.SRR5860570.vsSec$comp <-as.factor("SEC")
+lifted.SRR869587.vsSec$sample <-as.factor("SRR869587")
+lifted.SRR6426002.vsSec$sample <-as.factor("SRR6426002")
+lifted.SRR5860570.vsSec$sample <-as.factor("SRR5860570")
+
+lifted.SRR303333.vsSim <- import.bedGraph("analysis_out/SRR303333_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+names(lifted.SRR303333.vsSim@elementMetadata) <- c('actual', 'potential')
+lifted.SRR303333.vsSim$ratio <- lifted.SRR303333.vsSim$actual/lifted.SRR303333.vsSim$potential
+lifted.SRR303333.vsSim$comp <- as.factor("SIM")
+lifted.SRR303333.vsSim$sample <- as.factor("SRR303333")
+lifted.SRR303333.vsSec <- import.bedGraph("analysis_out/SRR303333_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+names(lifted.SRR303333.vsSec@elementMetadata) <- c('actual', 'potential')
+lifted.SRR303333.vsSec$ratio <- lifted.SRR303333.vsSec$actual/lifted.SRR303333.vsSec$potential
+lifted.SRR303333.vsSec$comp <- as.factor("SEC")
+lifted.SRR303333.vsSec$sample <- as.factor("SRR303333")
+```
+```{r echo=FALSE}
+
+all_controls <- c(lifted.SRR5860570.vsSec,lifted.SRR5860570.vsSim,lifted.SRR6426002.vsSec,lifted.SRR6426002.vsSim,lifted.SRR869587.vsSec,lifted.SRR869587.vsSim, lifted.SRR303333.vsSec, lifted.SRR303333.vsSim)
+
+all_controls$comp<- factor(all_controls$comp, levels = c("SIM", "SEC"))
+
+all_controls.chr2L <- all_controls[ all_controls@seqnames =='chr2L' ]
+```
+```{r echo=FALSE}
+#autoplot(all_controls.chr2L[all_controls.chr2L$comp == "SIM"], aes(y=ratio, color=sample), geom='line') + facet_grid(sample~comp, scales="free")
+autoplot(all_controls.chr2L, aes(y=ratio, color=sample), geom='line') + facet_grid(sample~comp, scale="free") + ggtitle("PSISeq2 Results from Sechellia and Selected Introgression Lines (chr2L)")
+
+
+png(filename = "figs/Fig1_chr2L_controlAndLookback.png", width = 1200, height=900)
+autoplot(all_controls.chr2L, aes(y=ratio, color=sample), geom='line') + facet_grid(sample~comp, scale="free") + ggtitle("PSISeq2 Results from Sechellia and Selected Introgression Lines (chr2L)")
+dev.off()
+```
+
+
+## Different genome assemblies
+
+
+Because of questions about the quality of the droSec1 assembly [cite?] (and droSim1?), the dsecr1 was fragmented and mapped to dsim2. Comparing the chr2L of this with the mapping to droSim1 and liftover to dm6 gives qualitatively simlar results:
+
+```{r echo=FALSE}
+SRR869587.vsSimFB <- import.bedGraph("analysis_out/SRR869587_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed")
+SRR6426002.vsSimFB <- import.bedGraph("analysis_out/SRR6426002_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed")
+SRR5860570.vsSimFB <- import.bedGraph("analysis_out/SRR5860570_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed")
+SRR303333.vsSimFB <- import.bedGraph("analysis_out/SRR303333_and_SynthSecFB_vs_dsimr2.bwa.dsimr2_w100000_s10000.windowCounts.bed")
+
+names(SRR869587.vsSimFB@elementMetadata) <- c('actual', 'potential')
+names(SRR6426002.vsSimFB@elementMetadata) <- c('actual', 'potential')
+names(SRR5860570.vsSimFB@elementMetadata) <- c('actual', 'potential')
+names(SRR303333.vsSimFB@elementMetadata) <- c('actual', 'potential')
+
+SRR869587.vsSimFB$ratio <- SRR869587.vsSimFB$actual/SRR869587.vsSimFB$potential
+SRR6426002.vsSimFB$ratio <- SRR6426002.vsSimFB$actual/SRR6426002.vsSimFB$potential
+SRR5860570.vsSimFB$ratio <- SRR5860570.vsSimFB$actual/SRR5860570.vsSimFB$potential
+SRR303333.vsSimFB$ratio <- SRR303333.vsSimFB$actual/SRR303333.vsSimFB$potential
+
+SRR869587.vsSimFB$comp <-as.factor("SIM")
+SRR6426002.vsSimFB$comp <-as.factor("SIM")
+SRR5860570.vsSimFB$comp <-as.factor("SIM")
+SRR303333.vsSimFB$comp <-as.factor("SIM")
+
+SRR869587.vsSimFB$sample <- as.factor("SRR869587")
+SRR6426002.vsSimFB$sample <- as.factor("SRR6426002")
+SRR5860570.vsSimFB$sample <- as.factor("SRR5860570")
+SRR303333.vsSimFB$sample <- as.factor("SRR303333")
+
+
+
+all_controls.dm6 <- all_controls
+all_controls.dm6$reference <- as.factor("droSim1")
+all_controls.dm6$sample <-factor(all_controls.dm6$sample, levels=c("SRR303333","SRR5860570","SRR6426002","SRR869587"))
+all_controls.dm6.chr2L <-  all_controls.dm6[ all_controls.dm6@seqnames =='chr2L' ]
+
+
+all_controls.FB <- c(SRR303333.vsSimFB,SRR5860570.vsSimFB,SRR6426002.vsSimFB,SRR869587.vsSimFB)
+
+all_controls.FB$reference <- as.factor("dsimr2")
+all_controls.FB$sample <-factor(all_controls.FB$sample, levels=c("SRR303333","SRR5860570","SRR6426002","SRR869587"))
+all_controls.FB.chr2L <-  all_controls.FB[ all_controls.FB@seqnames =='Scf_2L' ]
+
+
+
+#all_controls.both_refs.chr2L <- c( subset(all_controls.dm6.chr2L, comp=="SIM"), all_controls.FB.chr2L)
+
+
+```
+
+```{r echo=FALSE}
+
+SRR869587.vsSimDM <- import.bedGraph("analysis_out/SRR869587_and_SynthSecDM_vs_dsimDM.bwa.dsimDM_w100000_s10000.windowCounts.bed")
+SRR6426002.vsSimDM <- import.bedGraph("analysis_out/SRR6426002_and_SynthSecDM_vs_dsimDM.bwa.dsimDM_w100000_s10000.windowCounts.bed")
+SRR5860570.vsSimDM <- import.bedGraph("analysis_out/SRR5860570_and_SynthSecDM_vs_dsimDM.bwa.dsimDM_w100000_s10000.windowCounts.bed")
+SRR303333.vsSimDM <- import.bedGraph("analysis_out/SRR303333_and_SynthSecDM_vs_dsimDM.bwa.dsimDM_w100000_s10000.windowCounts.bed")
+
+
+names(SRR869587.vsSimDM@elementMetadata) <- c('actual', 'potential')
+names(SRR6426002.vsSimDM@elementMetadata) <- c('actual', 'potential')
+names(SRR5860570.vsSimDM@elementMetadata) <- c('actual', 'potential')
+names(SRR303333.vsSimDM@elementMetadata) <- c('actual', 'potential')
+
+SRR869587.vsSimDM$ratio <- SRR869587.vsSimDM$actual/SRR869587.vsSimDM$potential
+SRR6426002.vsSimDM$ratio <- SRR6426002.vsSimDM$actual/SRR6426002.vsSimDM$potential
+SRR5860570.vsSimDM$ratio <- SRR5860570.vsSimDM$actual/SRR5860570.vsSimDM$potential
+SRR303333.vsSimDM$ratio <- SRR303333.vsSimDM$actual/SRR303333.vsSimDM$potential
+
+SRR869587.vsSimDM$comp <-as.factor("SIM")
+SRR6426002.vsSimDM$comp <-as.factor("SIM")
+SRR5860570.vsSimDM$comp <-as.factor("SIM")
+SRR303333.vsSimDM$comp <-as.factor("SIM")
+
+SRR869587.vsSimDM$sample <- as.factor("SRR869587")
+SRR6426002.vsSimDM$sample <- as.factor("SRR6426002")
+SRR5860570.vsSimDM$sample <- as.factor("SRR5860570")
+SRR303333.vsSimDM$sample <- as.factor("SRR303333")
+
+all_controls.DM <- c(SRR869587.vsSimDM, SRR6426002.vsSimDM,SRR5860570.vsSimDM,SRR303333.vsSimDM )
+
+```
+
+```{r echo=FALSE}
+allControls.droSim1.plt <- autoplot(subset(all_controls.dm6.chr2L, comp=="SIM"), aes(y=ratio, color=sample), geom='line') + ggtitle("droSim1 & droSec1")
+
+allControls.dSimFB.plt <- autoplot(all_controls.FB.chr2L, aes(y=ratio, color=sample), geom='line') + ggtitle("dsimr2 & dsecr1")
+
+all_controls.bothRefs.tks <- tracks("droSim1 & droSec1" = allControls.droSim1.plt, "dsimr2 & dsecr1"= allControls.dSimFB.plt, title="PSISeq2 Results Using Different Genome Assemblies (chr2L)")
+
+all_controls.bothRefs.tks
+
+png(filename = "figs/Fig2_chr2L_genomeAssemblyCompare.png", width = 600, height=1200)
+all_controls.bothRefs.tks
+dev.off()
+
+```
+
+This procedure was repeated with the Danny Miller [@Miller2018] genome assemblies, but these are currently too fragmented to interpret:
+
+```{r echo=FALSE}
+all_controls.DM.subset<- all_controls.DM[all_controls.DM@seqnames %in% c("Consensus_Consensus_Consensus_utg000005l_pilon_pilon_pilon", "Consensus_Consensus_Consensus_utg000028l_pilon_pilon_pilon","Consensus_Consensus_Consensus_utg000052l_pilon_pilon_pilon","Consensus_Consensus_Consensus_utg000035l_pilon_pilon_pilon","Consensus_Consensus_Consensus_utg000014l_pilon_pilon_pilon")]
+autoplot(all_controls.DM.subset, aes(y=ratio, color=sample), geom="line") + facet_grid(.~seqnames, space="free", scales="free")
+```
+
+## Present Experimental Lines
+
+In the first pass of reanalysis, a selected line was mapped to the (UCSC) reference genomes, and the pileups compared. A site was considered to be a "potential" informative SNP if the parental pileup contains a mismatch there. If the offspring shares the same mismatch, that SNP is called "actual". The genome is split into sliding windows (100kb wide, slid by 10kb), the potential and actual SNPs are tallied per window, and their ratio calculated. This gives a measure of divergence from the reference genome being mapped to.  Because the droSec1 genome is relatively fragmented and because the comparisons need to be done on a common coordinate system, the the variants are remapped to the melanogaster dm6 reference using UCSC LiftOver.
+
+~Here is the line mapped to the droSim1 reference genome; synthetic reads were also simulated from the droSec1 reference, since the parent flies themselves were not sequenced. The vertical axis represents SNP count vs droSim1; more shared SNPs between the parental line and the backcrossed line suggests more sechellia character.~
+
+```{r echo=FALSE}
+
+lifted.10A.vsSim <- import.bedGraph("analysis_out/10A_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.10B.vsSim <- import.bedGraph("analysis_out/10B_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.13A.vsSim <- import.bedGraph("analysis_out/13A_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.13B.vsSim <- import.bedGraph("analysis_out/13B_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.17A.vsSim <- import.bedGraph("analysis_out/17A_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.17B.vsSim <- import.bedGraph("analysis_out/17B_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR303333.vsSim <- import.bedGraph("analysis_out/SRR303333_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+
+
+
+names(lifted.10A.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.10B.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.13A.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.13B.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.17A.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.17B.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR303333.vsSim@elementMetadata) <- c('actual', 'potential')
+lifted.10A.vsSim$ratio <- lifted.10A.vsSim$actual/lifted.10A.vsSim$potential
+lifted.10B.vsSim$ratio <- lifted.10B.vsSim$actual/lifted.10B.vsSim$potential
+lifted.13A.vsSim$ratio <- lifted.13A.vsSim$actual/lifted.13A.vsSim$potential
+lifted.13B.vsSim$ratio <- lifted.13B.vsSim$actual/lifted.13B.vsSim$potential
+lifted.17A.vsSim$ratio <- lifted.17A.vsSim$actual/lifted.17A.vsSim$potential
+lifted.17B.vsSim$ratio <- lifted.17B.vsSim$actual/lifted.17B.vsSim$potential
+lifted.SRR303333.vsSim$ratio <- lifted.SRR303333.vsSim$actual/lifted.SRR303333.vsSim$potential
+
+lifted.10A.vsSim$replicate <- as.factor("A") 
+lifted.10B.vsSim$replicate <- as.factor("B") 
+lifted.13A.vsSim$replicate <- as.factor("A") 
+lifted.13B.vsSim$replicate <- as.factor("B") 
+lifted.17A.vsSim$replicate <- as.factor("A") 
+lifted.17B.vsSim$replicate <- as.factor("B") 
+lifted.SRR303333.vsSim$replicate <- as.factor("0")
+lifted.10A.vsSim$comp <-as.factor("SIM")
+lifted.10B.vsSim$comp <-as.factor("SIM")
+lifted.13A.vsSim$comp <-as.factor("SIM")
+lifted.13B.vsSim$comp <-as.factor("SIM")
+lifted.17A.vsSim$comp <-as.factor("SIM")
+lifted.17B.vsSim$comp <-as.factor("SIM")
+lifted.SRR303333.vsSim$comp <- as.factor("SIM")
+lifted.10A.vsSim$sample <-as.factor("10")
+lifted.10B.vsSim$sample <-as.factor("10")
+lifted.13A.vsSim$sample <-as.factor("13")
+lifted.13B.vsSim$sample <-as.factor("13")
+lifted.17A.vsSim$sample <-as.factor("17")
+lifted.10B.vsSim$sample <-as.factor("17")
+lifted.SRR303333.vsSim$sample <- as.factor("SRR303333")
+
+lifted.10A.vsSec <- import.bedGraph("analysis_out/10A_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.10B.vsSec <- import.bedGraph("analysis_out/10B_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.13A.vsSec <- import.bedGraph("analysis_out/13A_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.13B.vsSec <- import.bedGraph("analysis_out/13B_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.17A.vsSec <- import.bedGraph("analysis_out/17A_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.17B.vsSec <- import.bedGraph("analysis_out/17B_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR303333.vsSec <- import.bedGraph("analysis_out/SRR303333_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+
+
+names(lifted.10A.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.10B.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.13A.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.13B.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.17A.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.17B.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR303333.vsSec@elementMetadata) <- c('actual', 'potential')
+lifted.10A.vsSec$ratio <- lifted.10A.vsSec$actual/lifted.10A.vsSec$potential
+lifted.10B.vsSec$ratio <- lifted.10B.vsSec$actual/lifted.10B.vsSec$potential
+lifted.13A.vsSec$ratio <- lifted.13A.vsSec$actual/lifted.13A.vsSec$potential
+lifted.13B.vsSec$ratio <- lifted.13B.vsSec$actual/lifted.13B.vsSec$potential
+lifted.17A.vsSec$ratio <- lifted.17A.vsSec$actual/lifted.17A.vsSec$potential
+lifted.17B.vsSec$ratio <- lifted.17B.vsSec$actual/lifted.17B.vsSec$potential
+lifted.SRR303333.vsSec$ratio <- lifted.SRR303333.vsSec$actual/lifted.SRR303333.vsSec$potential
+
+lifted.10A.vsSec$replicate <- as.factor("A") 
+lifted.10B.vsSec$replicate <- as.factor("B") 
+lifted.13A.vsSec$replicate <- as.factor("A") 
+lifted.13B.vsSec$replicate <- as.factor("B") 
+lifted.17A.vsSec$replicate <- as.factor("A") 
+lifted.17B.vsSec$replicate <- as.factor("B") 
+lifted.SRR303333.vsSec$replicate <- as.factor("0")
+lifted.10A.vsSec$comp <-as.factor("SEC")
+lifted.10B.vsSec$comp <-as.factor("SEC")
+lifted.13A.vsSec$comp <-as.factor("SEC")
+lifted.13B.vsSec$comp <-as.factor("SEC")
+lifted.17A.vsSec$comp <-as.factor("SEC")
+lifted.17B.vsSec$comp <-as.factor("SEC")
+lifted.SRR303333.vsSec$comp <- as.factor("SEC")
+lifted.10A.vsSec$sample <-as.factor("10")
+lifted.10B.vsSec$sample <-as.factor("10")
+lifted.13A.vsSec$sample <-as.factor("13")
+lifted.13B.vsSec$sample <-as.factor("13")
+lifted.17A.vsSec$sample <-as.factor("17")
+lifted.17B.vsSec$sample <-as.factor("17")
+lifted.SRR303333.vsSec$sample <- as.factor("SRR303333")
+
+```
+```{r echo=FALSE}
+
+all_samples_lifted <- c(lifted.10A.vsSec,lifted.10B.vsSec,lifted.13A.vsSec,lifted.13B.vsSec,lifted.17A.vsSec,lifted.10B.vsSec,lifted.10A.vsSim,lifted.10B.vsSim,lifted.13A.vsSim,lifted.13B.vsSim,lifted.17A.vsSim,lifted.10B.vsSim, lifted.SRR303333.vsSec, lifted.SRR303333.vsSim)
+```
+```{r echo=FALSE}
+all_samples_lifted.chr2L <- all_samples_lifted[all_samples_lifted@seqnames =='chr2L' ]
+
+```
+```{r echo=FALSE}
+all_lifted.pot <- autoplot(all_samples_lifted.chr2L, aes(y=potential, color=sample, linetype=replicate), geom='line') + facet_grid(comp~., scale="free")  
+
+all_lifted.act <- autoplot(all_samples_lifted.chr2L, aes(y=actual, color=sample, linetype=replicate), geom='line') + facet_grid(comp~., scale="free")  
+
+all_lifted.rat <- autoplot(all_samples_lifted.chr2L, aes(y=ratio, color=sample, linetype=replicate), geom='line') + facet_grid(comp~., scale="free")  
+
+#allLifted.alldat.chr2L.tks <- tracks(all_lifted.pot)
+
+#allLifted.alldat.chr2L.tks
+
+#all_lifted.pot
+
+#all_lifted.act
+
+#all_lifted.rat
+
+all_lifted.horizPlot <- align.plots(all_lifted.pot + theme(legend.position='none'), all_lifted.act + theme(legend.position='bottom'), all_lifted.rat + theme(legend.position='none'), vertical=FALSE)
+
+grid.arrange(all_lifted.horizPlot, top="Parental SNP Count, Derived SNP Count,\n and Per-Window Ratio for Selected Introgression Lines (chr2L)")
+
+png(filename = "figs/Fig3_chr2L_selectedPresent.png", width = 1200, height=900)
+grid.arrange(all_lifted.horizPlot, top="Parental SNP Count, Derived SNP Count,\n and Per-Window Ratio for Selected Introgression Lines (chr2L)")
+dev.off()
+
+```
+```{r echo=FALSE}
+autoplot(all_samples_lifted[all_samples_lifted@seqnames %in%  c('chr2R') ], aes(y=ratio, color=sample, linetype=replicate), geom='line') + facet_grid(comp~seqnames, scale="free") + ggtitle("chr2R")
+
+autoplot(all_samples_lifted[all_samples_lifted@seqnames %in%  c('chr3L') ], aes(y=ratio, color=sample, linetype=replicate), geom='line') + facet_grid(comp~seqnames, scale="free") + ggtitle("chr3L")
+
+autoplot(all_samples_lifted[all_samples_lifted@seqnames %in%  c('chr3R') ], aes(y=ratio, color=sample, linetype=replicate), geom='line') + facet_grid(comp~seqnames, scale="free") + ggtitle("chr3R")
+
+autoplot(all_samples_lifted[all_samples_lifted@seqnames %in%  c('chr4') ], aes(y=ratio, color=sample, linetype=replicate), geom='line') + facet_grid(comp~seqnames, scale="free") + ggtitle("chr4")
+
+autoplot(all_samples_lifted[all_samples_lifted@seqnames %in%  c('chrX') ], aes(y=ratio, color=sample, linetype=replicate), geom='line') + facet_grid(comp~seqnames, scale="free") + ggtitle("chrX")
+
+autoplot(all_samples_lifted[all_samples_lifted@seqnames %in%  c( 'chrY') ], aes(y=ratio, color=sample, linetype=replicate), geom='line') + facet_grid(comp~seqnames, scale="free") + ggtitle("chrY")
+```
+```{r echo=FALSE}
+all_lifted.select.rat <- autoplot(all_samples_lifted[all_samples_lifted@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ], aes(y=ratio, color=sample, linetype=replicate), geom='line') + facet_grid(comp~seqnames, scale="free") 
+
+all_lifted.select.rat
+
+png(filename = "figs/Fig4_allChr_selected.png", width = 1200, height=900)
+all_lifted.select.rat
+dev.off()
+
+```
+
+## Heterozygosity
+
+
+The original SNP-calling algorithm was 'plurality wins'; a site is counted as variable or not, based on whether one base was more common than all others, including the reference. The reimplementation currently requires 90% of the reads to support a non-reference call. Neither approach handles heterozygosity at all. Furthermore, neither the genome fragmenting Perl script in [@Earley2011] nor ART produce heterozygous reads, and simulating real-world heterozygosity is not trivial, though it has been done [@Stephens2016][@Yuan2017] (try these out?).
+
+Freebayes was used to call SNPs from the alignments, both individually and jointly; these were grouped by zygosity and counted by genomic window. They show an enhancement of heterozygosity in the problem region. 
+
+```{r echo=FALSE}
+
+tenA_vs_droSim.zyggy.joint <- import.bedGraph("analysis_out/10A_vs_droSim1.bwa.joint.10A.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR303333_vs_droSim.zyggy.joint<- import.bedGraph("analysis_out/SRR303333_vs_droSim1.bwa.joint.SRR303333.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR869587_vs_droSim.zyggy.joint<- import.bedGraph("analysis_out/SRR869587_vs_droSim1.bwa.joint.SRR869587.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR6426002_vs_droSim.zyggy.joint<- import.bedGraph("analysis_out/SRR6426002_vs_droSim1.bwa.joint.SRR6426002.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR5860570_vs_droSim.zyggy.joint<- import.bedGraph("analysis_out/SRR5860570_vs_droSim1.bwa.joint.SRR5860570.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+
+names(tenA_vs_droSim.zyggy.joint@elementMetadata ) <- c("count","zyg")
+names(SRR303333_vs_droSim.zyggy.joint@elementMetadata)<- c("count","zyg")
+names(SRR869587_vs_droSim.zyggy.joint@elementMetadata)<- c("count","zyg")
+names(SRR6426002_vs_droSim.zyggy.joint@elementMetadata)<- c("count","zyg")
+names(SRR5860570_vs_droSim.zyggy.joint@elementMetadata)<- c("count","zyg")
+
+tenA_vs_droSim.zyggy.joint$sample <- as.factor('10A')
+SRR303333_vs_droSim.zyggy.joint$sample <- as.factor('SRR303333')
+SRR869587_vs_droSim.zyggy.joint$sample <- as.factor('SRR869587')
+SRR6426002_vs_droSim.zyggy.joint$sample <- as.factor('SRR6426002')
+SRR5860570_vs_droSim.zyggy.joint$sample <- as.factor('SRR5860570')
+
+
+tenA_vs_droSim.zyggy.joint$zyg <- as.factor(tenA_vs_droSim.zyggy.joint$zyg)
+SRR303333_vs_droSim.zyggy.joint$zyg <- as.factor(SRR303333_vs_droSim.zyggy.joint$zyg)
+SRR869587_vs_droSim.zyggy.joint$zyg <- as.factor(SRR869587_vs_droSim.zyggy.joint$zyg)
+SRR6426002_vs_droSim.zyggy.joint$zyg <- as.factor(SRR6426002_vs_droSim.zyggy.joint$zyg)
+SRR5860570_vs_droSim.zyggy.joint$zyg <- as.factor(SRR5860570_vs_droSim.zyggy.joint$zyg)
+
+tenA_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+SRR303333_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+SRR869587_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+SRR6426002_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+SRR5860570_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+
+
+tenA_vs_droSim.zyggy.indiv <- import.bedGraph("analysis_out/10A_vs_droSim1.bwa.indiv.10A.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR303333_vs_droSim.zyggy.indiv<- import.bedGraph("analysis_out/SRR303333_vs_droSim1.bwa.indiv.SRR303333.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR869587_vs_droSim.zyggy.indiv<- import.bedGraph("analysis_out/SRR869587_vs_droSim1.bwa.indiv.SRR869587.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR6426002_vs_droSim.zyggy.indiv<- import.bedGraph("analysis_out/SRR6426002_vs_droSim1.bwa.indiv.SRR6426002.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+SRR5860570_vs_droSim.zyggy.indiv<- import.bedGraph("analysis_out/SRR5860570_vs_droSim1.bwa.indiv.SRR5860570.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+
+names(tenA_vs_droSim.zyggy.indiv@elementMetadata ) <- c("count","zyg")
+names(SRR303333_vs_droSim.zyggy.indiv@elementMetadata)<- c("count","zyg")
+names(SRR869587_vs_droSim.zyggy.indiv@elementMetadata)<- c("count","zyg")
+names(SRR6426002_vs_droSim.zyggy.indiv@elementMetadata)<- c("count","zyg")
+names(SRR5860570_vs_droSim.zyggy.indiv@elementMetadata)<- c("count","zyg")
+
+tenA_vs_droSim.zyggy.indiv$sample <- as.factor('10A')
+SRR303333_vs_droSim.zyggy.indiv$sample <- as.factor('SRR303333')
+SRR869587_vs_droSim.zyggy.indiv$sample <- as.factor('SRR869587')
+SRR6426002_vs_droSim.zyggy.indiv$sample <- as.factor('SRR6426002')
+SRR5860570_vs_droSim.zyggy.indiv$sample <- as.factor('SRR5860570')
+
+
+tenA_vs_droSim.zyggy.indiv$zyg <- as.factor(tenA_vs_droSim.zyggy.indiv$zyg)
+SRR303333_vs_droSim.zyggy.indiv$zyg <- as.factor(SRR303333_vs_droSim.zyggy.indiv$zyg)
+SRR869587_vs_droSim.zyggy.indiv$zyg <- as.factor(SRR869587_vs_droSim.zyggy.indiv$zyg)
+SRR6426002_vs_droSim.zyggy.indiv$zyg <- as.factor(SRR6426002_vs_droSim.zyggy.indiv$zyg)
+SRR5860570_vs_droSim.zyggy.indiv$zyg <- as.factor(SRR5860570_vs_droSim.zyggy.indiv$zyg)
+
+tenA_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+SRR303333_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+SRR869587_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+SRR6426002_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+SRR5860570_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+
+
+all_zyg <- c(SRR5860570_vs_droSim.zyggy.indiv,SRR5860570_vs_droSim.zyggy.joint,SRR6426002_vs_droSim.zyggy.indiv,SRR6426002_vs_droSim.zyggy.joint,SRR869587_vs_droSim.zyggy.indiv,SRR869587_vs_droSim.zyggy.joint,SRR303333_vs_droSim.zyggy.indiv,SRR303333_vs_droSim.zyggy.joint,tenA_vs_droSim.zyggy.indiv,tenA_vs_droSim.zyggy.joint)
+
+all_zyg.chr2L <- all_zyg[all_zyg@seqnames =='chr2L' ]
+
+```
+```{r echo=FALSE}
+
+#autoplot(all_zyg.chr2L, aes(y=count, color=sample, linetype=caller), geom='line') + facet_grid(zyg~., scale="free") 
+
+all_zyg.chr2L.hom.plt <- autoplot(all_zyg.chr2L[all_zyg.chr2L$zyg == "HOM"], aes(y=count, color=sample, linetype=caller), geom='line') + facet_grid(sample~., scale="free") 
+
+all_zyg.chr2L.het.plt <- autoplot(all_zyg.chr2L[all_zyg.chr2L$zyg == "HET"], aes(y=count, color=sample, linetype=caller), geom='line') + facet_grid(sample~., scale="free") 
+
+
+all_zyg.chr2L.horizPlot <- align.plots(all_zyg.chr2L.hom.plt + theme(legend.position='bottom'), all_zyg.chr2L.het.plt + theme(legend.position='none'), vertical=FALSE)#, title = "Heterozygosity and Heterozygosity on chr2L, across lines")
+
+plot(all_zyg.chr2L.horizPlot, main="Heterozygosity and Heterozygosity on chr2L, across lines")
+png(filename = "figs/Fig5_chr2L_everyZyg.png", width = 1200, height=900)
+plot(all_zyg.chr2L.horizPlot, main="Heterozygosity and Heterozygosity on chr2L, across lines")
+dev.off()
+```
+
+A depletion of homozygosity is visible in the selection and most of the control lines near the chr2L artefacts. However, only SRR303333 and 10A show an enhancement of heterozygosity in those regions, and they aren't consisitent. This is in contrast with an earlier version of these results, in which the regions of enhanced heterozygosity were more consistent between lines and more visible in some of the controls. The difference between the versions is primarily a lowered coverage threshold for variant-calling in the present.
+
+Here are the same results for all selected
+
+```{r echo=FALSE}
+
+tenB_vs_droSim.zyggy.joint <- import.bedGraph("analysis_out/10B_vs_droSim1.bwa.joint.10B.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+names(tenB_vs_droSim.zyggy.joint@elementMetadata ) <- c("count","zyg")
+tenB_vs_droSim.zyggy.joint$sample <- as.factor('10B')
+tenB_vs_droSim.zyggy.joint$zyg <- as.factor(tenB_vs_droSim.zyggy.joint$zyg)
+tenB_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+tenB_vs_droSim.zyggy.indiv <- import.bedGraph("analysis_out/10B_vs_droSim1.bwa.indiv.10B.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+names(tenB_vs_droSim.zyggy.indiv@elementMetadata ) <- c("count","zyg")
+tenB_vs_droSim.zyggy.indiv$sample <- as.factor('10B')
+tenB_vs_droSim.zyggy.indiv$zyg <- as.factor(tenB_vs_droSim.zyggy.indiv$zyg)
+tenB_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+
+
+thirteenA_vs_droSim.zyggy.joint <- import.bedGraph("analysis_out/13A_vs_droSim1.bwa.joint.13A.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+names(thirteenA_vs_droSim.zyggy.joint@elementMetadata ) <- c("count","zyg")
+thirteenA_vs_droSim.zyggy.joint$sample <- as.factor('13A')
+thirteenA_vs_droSim.zyggy.joint$zyg <- as.factor(thirteenA_vs_droSim.zyggy.joint$zyg)
+thirteenA_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+thirteenA_vs_droSim.zyggy.indiv <- import.bedGraph("analysis_out/13A_vs_droSim1.bwa.indiv.13A.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+names(thirteenA_vs_droSim.zyggy.indiv@elementMetadata ) <- c("count","zyg")
+thirteenA_vs_droSim.zyggy.indiv$sample <- as.factor('13A')
+thirteenA_vs_droSim.zyggy.indiv$zyg <- as.factor(thirteenA_vs_droSim.zyggy.indiv$zyg)
+thirteenA_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+
+
+thirteenB_vs_droSim.zyggy.joint <- import.bedGraph("analysis_out/13B_vs_droSim1.bwa.joint.13B.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+names(thirteenB_vs_droSim.zyggy.joint@elementMetadata ) <- c("count","zyg")
+thirteenB_vs_droSim.zyggy.joint$sample <- as.factor('13B')
+thirteenB_vs_droSim.zyggy.joint$zyg <- as.factor(thirteenB_vs_droSim.zyggy.joint$zyg)
+thirteenB_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+thirteenB_vs_droSim.zyggy.indiv <- import.bedGraph("analysis_out/13B_vs_droSim1.bwa.indiv.13B.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+names(thirteenB_vs_droSim.zyggy.indiv@elementMetadata ) <- c("count","zyg")
+thirteenB_vs_droSim.zyggy.indiv$sample <- as.factor('13B')
+thirteenB_vs_droSim.zyggy.indiv$zyg <- as.factor(thirteenB_vs_droSim.zyggy.indiv$zyg)
+thirteenB_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+
+
+seventeenA_vs_droSim.zyggy.joint <- import.bedGraph("analysis_out/17A_vs_droSim1.bwa.joint.17A.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+names(seventeenA_vs_droSim.zyggy.joint@elementMetadata ) <- c("count","zyg")
+seventeenA_vs_droSim.zyggy.joint$sample <- as.factor('17A')
+seventeenA_vs_droSim.zyggy.joint$zyg <- as.factor(seventeenA_vs_droSim.zyggy.joint$zyg)
+seventeenA_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+seventeenA_vs_droSim.zyggy.indiv <- import.bedGraph("analysis_out/17A_vs_droSim1.bwa.indiv.17A.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+names(seventeenA_vs_droSim.zyggy.indiv@elementMetadata ) <- c("count","zyg")
+seventeenA_vs_droSim.zyggy.indiv$sample <- as.factor('17A')
+seventeenA_vs_droSim.zyggy.indiv$zyg <- as.factor(seventeenA_vs_droSim.zyggy.indiv$zyg)
+seventeenA_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+
+
+seventeenB_vs_droSim.zyggy.joint <- import.bedGraph("analysis_out/17B_vs_droSim1.bwa.joint.17B.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+names(seventeenB_vs_droSim.zyggy.joint@elementMetadata ) <- c("count","zyg")
+seventeenB_vs_droSim.zyggy.joint$sample <- as.factor('17B')
+seventeenB_vs_droSim.zyggy.joint$zyg <- as.factor(seventeenB_vs_droSim.zyggy.joint$zyg)
+seventeenB_vs_droSim.zyggy.joint$caller <- as.factor('joint')
+seventeenB_vs_droSim.zyggy.indiv <- import.bedGraph("analysis_out/17B_vs_droSim1.bwa.indiv.17B.droSim1_w100000_s10000.windowedZygosity.bed", genome="droSim1")
+names(seventeenB_vs_droSim.zyggy.indiv@elementMetadata ) <- c("count","zyg")
+seventeenB_vs_droSim.zyggy.indiv$sample <- as.factor('17B')
+seventeenB_vs_droSim.zyggy.indiv$zyg <- as.factor(seventeenB_vs_droSim.zyggy.indiv$zyg)
+seventeenB_vs_droSim.zyggy.indiv$caller <- as.factor('indiv')
+
+
+
+all_selected_zyggy <- c(SRR303333_vs_droSim.zyggy.indiv,SRR303333_vs_droSim.zyggy.joint,tenA_vs_droSim.zyggy.indiv,tenA_vs_droSim.zyggy.joint,tenB_vs_droSim.zyggy.joint ,tenB_vs_droSim.zyggy.indiv ,thirteenA_vs_droSim.zyggy.joint ,thirteenA_vs_droSim.zyggy.indiv ,thirteenB_vs_droSim.zyggy.joint ,thirteenB_vs_droSim.zyggy.indiv ,seventeenA_vs_droSim.zyggy.joint ,seventeenA_vs_droSim.zyggy.indiv ,seventeenB_vs_droSim.zyggy.joint ,seventeenB_vs_droSim.zyggy.indiv)
+
+
+
+all_selected_zyggy.chr2L <- all_selected_zyggy[all_selected_zyggy@seqnames =='chr2L' ]
+
+
+all_zyg_select.chr2L.hom.plt <- autoplot(all_selected_zyggy.chr2L[all_selected_zyggy.chr2L$zyg == "HOM"], aes(y=count, color=sample, linetype=caller), geom='line') + facet_grid(sample~., scale="free") 
+
+all_zyg_select.chr2L.het.plt <- autoplot(all_selected_zyggy.chr2L[all_selected_zyggy.chr2L$zyg == "HET"], aes(y=count, color=sample, linetype=caller), geom='line') + facet_grid(sample~., scale="free") 
+
+
+all_zyg_select.chr2L.horizPlot <- align.plots(all_zyg_select.chr2L.hom.plt + theme(legend.position='bottom'), all_zyg_select.chr2L.het.plt + theme(legend.position='none'), vertical=FALSE)
+```
+
+
+
+
+## Using a Smarter Variant-Caller 
+
+The original algorithm and this reimplementation are at their core simple variant calling followed by comparison. Using more sophisticated variant callers developed since such as freebayes is an alternative approachroach.
+
+The jointly called SNPs from above were used to identify and then count sites which were variable in the ancestral and introgressed lines, without regard to zygosity; these counts were windowed as above. 
+
+
+
+```{r echo=FALSE}
+
+tenA_with587_vsdroSim1_vcfNaive <- import.bedGraph("analysis_out/10A.bwa.joint.sharedWith.SRR869587.bwa.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SRR303333_with587_vsdroSim1_vcfNaive <- import.bedGraph("analysis_out/SRR303333.bwa.joint.sharedWith.SRR869587.bwa.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SRR5860570_with587_vsdroSim1_vcfNaive <- import.bedGraph("analysis_out/SRR5860570.bwa.joint.sharedWith.SRR869587.bwa.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+
+
+
+
+names(tenA_with587_vsdroSim1_vcfNaive@elementMetadata) <- c('actual', 'potential')
+names(SRR303333_with587_vsdroSim1_vcfNaive@elementMetadata) <- c('actual', 'potential')
+names(SRR5860570_with587_vsdroSim1_vcfNaive@elementMetadata) <- c('actual', 'potential')
+
+tenA_with587_vsdroSim1_vcfNaive$ratio <- tenA_with587_vsdroSim1_vcfNaive$actual/tenA_with587_vsdroSim1_vcfNaive$potential
+
+SRR303333_with587_vsdroSim1_vcfNaive$ratio <- SRR303333_with587_vsdroSim1_vcfNaive$actual/SRR303333_with587_vsdroSim1_vcfNaive$potential
+
+SRR5860570_with587_vsdroSim1_vcfNaive$ratio <- SRR5860570_with587_vsdroSim1_vcfNaive$actual/SRR5860570_with587_vsdroSim1_vcfNaive$potential
+
+
+tenA_with587_vsdroSim1_vcfNaive$comp <-as.factor("SIM")
+SRR303333_with587_vsdroSim1_vcfNaive$comp <-as.factor("SIM")
+SRR5860570_with587_vsdroSim1_vcfNaive$comp <-as.factor("SIM")
+
+
+tenA_with587_vsdroSim1_vcfNaive$sample <-as.factor("10A")
+SRR303333_with587_vsdroSim1_vcfNaive$sample <-as.factor("SRR303333")
+SRR5860570_with587_vsdroSim1_vcfNaive$sample <-as.factor("SRR5860570")
+
+tenA_with587_vsdroSim1_vcfNaive$parent <-as.factor("SRR869587")
+SRR303333_with587_vsdroSim1_vcfNaive$parent <-as.factor("SRR869587")
+SRR5860570_with587_vsdroSim1_vcfNaive$parent <-as.factor("SRR869587")
+
+
+all_VCF_naive <- c(tenA_with587_vsdroSim1_vcfNaive,SRR303333_with587_vsdroSim1_vcfNaive,SRR5860570_with587_vsdroSim1_vcfNaive)
+
+all_VCF_naive.chr2L <- all_VCF_naive[ all_VCF_naive@seqnames =='chr2L' ]
+```
+
+```{r echo=FALSE}
+autoplot(all_VCF_naive.chr2L, aes(y=ratio, color=sample), geom='line') + facet_grid(sample~comp, scale="free")
+```
+
+Although there are hints of the artefact remaining, including in the control sechellia line SRR5860570, it is greatly suppressed and the ratio in all three lines is remarkably stable across the chromosome arm.
+
+
+### Even better variant-calling approaches
+
+One improvement would be to use pedigree-aware variant calling, in which the sequenced parent and offspring are used to identify SNPs. On a scale of one generation this might mean rejecting implausible zygosity combinations. If only the last backcross generation was sequenced, the zygosity of the parent strains might be used to create a background distribution of what the nth generation would look like. This might be one way to get information about selection that isn't strong enough to cause fixation yet
+
+Not implementing this right now because the only appropriate lines are Rich/Nicole
+
+## Improvements to experimental design
+
+
+Ideally there would be replicated control and selection lines, with each fly in each mating pair sequenced. This would allow better variant-calling and finer resolution of the introgression and retention of sequence (eg, has the erosion of a selected-for region reached an asymptote?)
+
+One way to scale back the flies to sequence might be to subsample (sequencing every 3 backcrosses rather than every one). Collect each mating pair and freeze (keeping the 2**n +  flies and sequencing as needed is easier than sequencing all of them, including false starts etc).
+
+
+## Identifying Significant Regions
+
+Once the counts have been tallied and ratioed, candidate regions for introgression must be identified. 
+
+
+```{r echo=FALSE}
+lifted.10A.vsSim <- import.bedGraph("analysis_out/10A_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+#lifted.SRR303333.vsSim <- import.bedGraph("analysis_out/SRR303333_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+#lifted.SRR5860570.vsSim <- import.bedGraph("analysis_out/SRR5860570_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+
+
+
+names(lifted.10A.vsSim@elementMetadata) <- c('actual', 'potential')
+lifted.10A.vsSim$ratio <- lifted.10A.vsSim$actual/lifted.10A.vsSim$potential
+
+#names(lifted.SRR5860570.vsSim@elementMetadata) <- c('actual', 'potential')
+#lifted.SRR5860570.vsSim$ratio <- lifted.SRR5860570.vsSim$actual/lifted.SRR5860570.vsSim$potential
+#lifted.SRR5860570.vsSim$sample <-as.factor("SRR5860570")
+lifted.10A.vsSim$sample <-as.factor("10A")
+
+
+#all_samples_lifted.chr2L <- all_samples_lifted[all_samples_lifted@seqnames =='chr2L' ]
+window_size <- 100000
+
+#lifted.SRR5860570.vsSim.chr2L <- lifted.SRR5860570.vsSim[lifted.SRR5860570.vsSim@seqnames == 'chr2L']
+
+#lifted.SRR5860570.vsSim.chr2L <- lifted.SRR5860570.vsSim.chr2L[lifted.SRR5860570.vsSim.chr2L@ranges@width == window_size]
+
+lifted.10A.vsSim.chr2L <- lifted.10A.vsSim[lifted.10A.vsSim@seqnames == 'chr2L']
+
+lifted.10A.vsSim.chr2L <- lifted.10A.vsSim.chr2L[lifted.10A.vsSim.chr2L@ranges@width == window_size]
+
+
+```
+
+
+### Bin-by-Bin
+
+in [@Earley2011], these regions were identified by comparing the ratio value in each individual bin to the chromosome-wide mean and standard deviation. A p-value and false discovery rate were then calcuated based on a chromosome-wide normal distribution, and bins with an FDR below a set threshold were retained as significant:
+
+```{r echo=FALSE}
+# ~ verbatim reimplementation of [@Earley2011]
+
+avg <- mean(lifted.10A.vsSim.chr2L$ratio, na.rm=TRUE)
+
+std <- sd(lifted.10A.vsSim.chr2L$ratio, na.rm=TRUE)
+
+#lifted.10A.vsSim.chr2L %>% mutate(pea = pnorm(ratio, avg, std))
+
+#for (x in data$OneRatio) p<-append(p,)	#calculate pnorm (pval)
+lifted.10A.vsSim.chr2L$rawP <- as.numeric(lifted.10A.vsSim.chr2L$ratio %>%  map(function(x) pnorm(x, avg, std)))
+
+# sorted<-plist[with(plist, order(pval)),]	#sort dataframe by pval
+# #sorted: binID	Position	OneRatio	pval
+# fdrcalc<-function(i,N) {	#calculate FDR
+# 	i*(0.05/N)	###### FALSE DISCOVERY RATE HERE #####
+# }
+# fdr<-numeric()
+# for (i in 1:N) fdr<-append(fdr,fdrcalc(i,N))	#associate sorted pvals with equivalent FDR
+# combined<-cbind(sorted,fdr)
+# Unless I'm badly misreading Benjamini, Y., and Hochberg, Y. (1995), this is equivalent to the p.adjust function with methond="BH"
+#summary(lifted.10A.vsSim.chr2L$rawP)
+
+
+lifted.10A.vsSim.chr2L$pea <- p.adjust(lifted.10A.vsSim.chr2L$rawP, method ="BH") 
+#summary(lifted.10A.vsSim.chr2L$pea)
+
+```
+```{r echo=FALSE}
+autoplot(lifted.10A.vsSim.chr2L, aes(y=ratio), geom='line') + geom_ribbon(aes(ymin=avg-std, ymax=avg+std), alpha=0.25, fill='blue') + geom_point(aes(y=ratio, alpha=as.factor(rawP<0.05), color=as.factor(pea < 0.2)), size=3.5) + scale_alpha_discrete(range =c(0.15,1)) + geom_line(aes(y=ratio), linetype="dotted")
+```
+
+One possibility for improving statistical power would be to use larger and/or non-overlapping windows; sliding windows might be depressing significance by increasing the number of comparisons to correct for while not individually representing a true degree of freedom.
+
+### Changepoint detection
+
+Another approach uses changepoint detection to identify points where the ratio dramatically changes:
+
+```{r echo=FALSE}
+lifted.10A.vsSim.chr2L <- lifted.10A.vsSim[lifted.10A.vsSim@seqnames =='chr2L' ]
+lifted.10A.vsSim.chr2L[is.na(lifted.10A.vsSim.chr2L$ratio)]$ratio <- 0
+lifted.10A.vsSim.chr2L <- lifted.10A.vsSim.chr2L[lifted.10A.vsSim.chr2L@ranges@width == 100000]
+
+
+tenA.2L.cpt.plt <-
+autoplot(lifted.10A.vsSim.chr2L, aes(y=ratio), geom='line') 
+
+
+for (i in 1:3){
+changePoints <- cpt.mean(lifted.10A.vsSim.chr2L$ratio, method="SegNeigh", penalty = "None", pen.value=0.05, Q=4*i)
+
+
+tenA.2L.cpt.plt <- tenA.2L.cpt.plt + geom_vline(xintercept = c(lifted.10A.vsSim.chr2L@ranges[changePoints@cpts]@start), color="red", linetype=i)
+
+
+}
+
+tenA.2L.cpt.plt
+```
+
+This approach has some drawbacks. One is that it the changepoints it detects are not necessarily the boundaries of an selected region. For example, consider an area of introgression which was weakly selected on the perimeters but contained a strongly selected center. Changepoint detection might draw out four changes from this region instead of two. This might be useful information, but it doesn't cleanly divide the genome into introgressed and nonintrogressed regions. Additionally, false positive or negative changepoints could wreck havoc with simplistic region-calling algorithms (eg, one defining a region as the space between two changepoints). The changepoint algorithm also requires parameters and other options to be tuned; some of them, such as a prior estimate of changepoint count, have a strong impact on the outcome (different line styles represent different prior estimates of changepoint count). 
+
+## Total ReCall of the bins
+
+To reexamine the [@Earley2011] results, the old and new introgression lines, as well as two pure Sechellia lines, were reanalyzed. Reads were mapped to droSec1 using the BWA-Uniq mapping strategy; variants were called jointly using Freebayes and lifted to dm6. SRR5860570 was arbitrarily chosen as the parental line.  Non-overlapping 100kb windows were used, and significant windows were identified by comparison to chromosome-wide mean and standard deviation as in [@Earley2011], with an FDR cutoff of 0.1. 
+
+Once the significant windows are identified in each analyzed line, those called as significant in the control lines were excluded from those called as significant in the backcrossed lines. 
+
+
+```{r echo=FALSE}
+tenA_with587_vsdroSim1_reCall <- import.bedGraph("analysis_out/10A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+names(tenA_with587_vsdroSim1_reCall@elementMetadata) <- c('actual', 'potential')
+tenA_with587_vsdroSim1_reCall <- tenA_with587_vsdroSim1_reCall[tenA_with587_vsdroSim1_reCall$potential>0]
+tenA_with587_vsdroSim1_reCall$ratio <- tenA_with587_vsdroSim1_reCall$actual/tenA_with587_vsdroSim1_reCall$potential
+tenA_with587_vsdroSim1_reCall$sample <- as.factor("10A")
+tenA_with587_vsdroSim1_reCall$line <- as.factor("10")
+tenA_with587_vsdroSim1_reCall$replicate <- as.factor("A")
+tenA_with587_vsdroSim1_reCall$treatment <- as.factor("selection")
+
+
+tenB_with587_vsdroSim1_reCall <- import.bedGraph("analysis_out/10B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+names(tenB_with587_vsdroSim1_reCall@elementMetadata) <- c('actual', 'potential')
+tenB_with587_vsdroSim1_reCall <- tenB_with587_vsdroSim1_reCall[tenB_with587_vsdroSim1_reCall$potential>0]
+tenB_with587_vsdroSim1_reCall$ratio <- tenB_with587_vsdroSim1_reCall$actual/tenB_with587_vsdroSim1_reCall$potential
+tenB_with587_vsdroSim1_reCall$sample <- as.factor("10B")
+tenB_with587_vsdroSim1_reCall$line <- as.factor("10")
+tenB_with587_vsdroSim1_reCall$replicate <- as.factor("B")
+tenB_with587_vsdroSim1_reCall$treatment <- as.factor("selection")
+
+thirteenA_with587_vsdroSim1_reCall <- import.bedGraph("analysis_out/13A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+names(thirteenA_with587_vsdroSim1_reCall@elementMetadata) <- c('actual', 'potential')
+thirteenA_with587_vsdroSim1_reCall <- thirteenA_with587_vsdroSim1_reCall[thirteenA_with587_vsdroSim1_reCall$potential>0]
+thirteenA_with587_vsdroSim1_reCall$ratio <- thirteenA_with587_vsdroSim1_reCall$actual/thirteenA_with587_vsdroSim1_reCall$potential
+thirteenA_with587_vsdroSim1_reCall$sample <- as.factor("13A")
+thirteenA_with587_vsdroSim1_reCall$line <- as.factor("13")
+thirteenA_with587_vsdroSim1_reCall$replicate <- as.factor("A")
+thirteenA_with587_vsdroSim1_reCall$treatment <- as.factor("selection")
+
+thirteenB_with587_vsdroSim1_reCall <- import.bedGraph("analysis_out/13B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+names(thirteenB_with587_vsdroSim1_reCall@elementMetadata) <- c('actual', 'potential')
+thirteenB_with587_vsdroSim1_reCall <- thirteenB_with587_vsdroSim1_reCall[thirteenB_with587_vsdroSim1_reCall$potential>0]
+thirteenB_with587_vsdroSim1_reCall$ratio <- thirteenB_with587_vsdroSim1_reCall$actual/thirteenB_with587_vsdroSim1_reCall$potential
+thirteenB_with587_vsdroSim1_reCall$sample <- as.factor("13B")
+thirteenB_with587_vsdroSim1_reCall$line <- as.factor("13")
+thirteenB_with587_vsdroSim1_reCall$replicate <- as.factor("B")
+thirteenB_with587_vsdroSim1_reCall$treatment <- as.factor("selection")
+
+
+seventeenA_with587_vsdroSim1_reCall <- import.bedGraph("analysis_out/17A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+names(seventeenA_with587_vsdroSim1_reCall@elementMetadata) <- c('actual', 'potential')
+seventeenA_with587_vsdroSim1_reCall <- seventeenA_with587_vsdroSim1_reCall[seventeenA_with587_vsdroSim1_reCall$potential>0]
+seventeenA_with587_vsdroSim1_reCall$ratio <- seventeenA_with587_vsdroSim1_reCall$actual/seventeenA_with587_vsdroSim1_reCall$potential
+seventeenA_with587_vsdroSim1_reCall$sample <- as.factor("17A")
+seventeenA_with587_vsdroSim1_reCall$line <- as.factor("17")
+seventeenA_with587_vsdroSim1_reCall$replicate <- as.factor("A")
+seventeenA_with587_vsdroSim1_reCall$treatment <- as.factor("selection")
+
+seventeenB_with587_vsdroSim1_reCall <- import.bedGraph("analysis_out/17B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+names(seventeenB_with587_vsdroSim1_reCall@elementMetadata) <- c('actual', 'potential')
+seventeenB_with587_vsdroSim1_reCall <- seventeenB_with587_vsdroSim1_reCall[seventeenB_with587_vsdroSim1_reCall$potential>0]
+seventeenB_with587_vsdroSim1_reCall$ratio <- seventeenB_with587_vsdroSim1_reCall$actual/seventeenB_with587_vsdroSim1_reCall$potential
+seventeenB_with587_vsdroSim1_reCall$sample <- as.factor("17B")
+seventeenB_with587_vsdroSim1_reCall$line <- as.factor("17")
+seventeenB_with587_vsdroSim1_reCall$replicate <- as.factor("B")
+seventeenB_with587_vsdroSim1_reCall$treatment <- as.factor("selection")
+
+SRR303_with587_vsdroSim1_reCall <- import.bedGraph("analysis_out/SRR303333.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+names(SRR303_with587_vsdroSim1_reCall@elementMetadata) <- c('actual', 'potential')
+SRR303_with587_vsdroSim1_reCall <- SRR303_with587_vsdroSim1_reCall[SRR303_with587_vsdroSim1_reCall$potential>0]
+SRR303_with587_vsdroSim1_reCall$ratio <- SRR303_with587_vsdroSim1_reCall$actual/SRR303_with587_vsdroSim1_reCall$potential
+SRR303_with587_vsdroSim1_reCall$sample <- as.factor("SRR303333")
+SRR303_with587_vsdroSim1_reCall$line <- as.factor("SRR303333")
+SRR303_with587_vsdroSim1_reCall$replicate <- as.factor("0")
+SRR303_with587_vsdroSim1_reCall$treatment <- as.factor("selection")
+
+
+
+
+SRR002_with587_vsdroSim1_reCall <- import.bedGraph("analysis_out/SRR6426002.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+names(SRR002_with587_vsdroSim1_reCall@elementMetadata) <- c('actual', 'potential')
+SRR002_with587_vsdroSim1_reCall <- SRR002_with587_vsdroSim1_reCall[SRR002_with587_vsdroSim1_reCall$potential>0]
+SRR002_with587_vsdroSim1_reCall$ratio <- SRR002_with587_vsdroSim1_reCall$actual/SRR002_with587_vsdroSim1_reCall$potential
+SRR002_with587_vsdroSim1_reCall$sample <- as.factor("SRR6426002")
+SRR002_with587_vsdroSim1_reCall$line <- as.factor("SRR6426002")
+SRR002_with587_vsdroSim1_reCall$replicate <- as.factor("0")
+SRR002_with587_vsdroSim1_reCall$treatment <- as.factor("control")
+
+
+
+SRR570_with587_vsdroSim1_reCall <- import.bedGraph("analysis_out/SRR5860570.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+names(SRR570_with587_vsdroSim1_reCall@elementMetadata) <- c('actual', 'potential')
+SRR570_with587_vsdroSim1_reCall <- SRR570_with587_vsdroSim1_reCall[SRR570_with587_vsdroSim1_reCall$potential>0]
+SRR570_with587_vsdroSim1_reCall$ratio <- SRR570_with587_vsdroSim1_reCall$actual/SRR570_with587_vsdroSim1_reCall$potential
+SRR570_with587_vsdroSim1_reCall$sample <- as.factor("SRR5860570")
+SRR570_with587_vsdroSim1_reCall$line <- as.factor("SRR5860570")
+SRR570_with587_vsdroSim1_reCall$replicate <- as.factor("0")
+SRR570_with587_vsdroSim1_reCall$treatment <- as.factor("control")
+
+
+```
+```{r echo=FALSE}
+# define the significance function
+
+significator <- function(rats_in){
+  avg <- mean(rats_in,na.rm=TRUE)
+  std <- sd(rats_in,na.rm=TRUE)
+
+  raw_peas <- as.numeric(rats_in %>%  map(function(x) pnorm(x, avg, std)))
+  return(raw_peas)
+}
+
+subset_to_standard <- function(granges_in){
+  return(granges_in[granges_in@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ])
+}
+
+significate_all_chromosomes <- function(granges_in) {
+
+  granges_in$rawP <- as.numeric(1)
+  granges_in$fdr <- as.numeric(1)
+
+  blank_granges <- granges_in[ 1==2]
+
+  
+  for (seq in granges_in@seqnames@values ) {
+  
+    #print(seq)  
+
+    
+    tmp_granges <- granges_in[granges_in@seqnames == seq ]
+    tmp_granges$rawP <- significator(tmp_granges$ratio)
+#    tmp_granges$fdr <- p.adjust(tmp_granges$rawP, method ="BH")
+    blank_granges <- c(blank_granges, tmp_granges)
+    
+    }
+  blank_granges <- subset_to_standard(blank_granges)
+  blank_granges$fdr <- p.adjust(blank_granges$rawP, method ="BH")
+  # multiple comparison correction by genome, not by chromosome
+  return(blank_granges)
+}
+
+
+
+```
+```{r echo=FALSE}
+# iterate across the chroms
+
+
+tenA_with587_vsdroSim1_reCall<- significate_all_chromosomes(tenA_with587_vsdroSim1_reCall)
+tenB_with587_vsdroSim1_reCall <- significate_all_chromosomes(tenB_with587_vsdroSim1_reCall)
+thirteenA_with587_vsdroSim1_reCall<- significate_all_chromosomes(thirteenA_with587_vsdroSim1_reCall)
+thirteenB_with587_vsdroSim1_reCall <- significate_all_chromosomes(thirteenB_with587_vsdroSim1_reCall)
+seventeenA_with587_vsdroSim1_reCall<- significate_all_chromosomes(seventeenA_with587_vsdroSim1_reCall)
+seventeenB_with587_vsdroSim1_reCall <- significate_all_chromosomes(seventeenB_with587_vsdroSim1_reCall)
+SRR303_with587_vsdroSim1_reCall <- significate_all_chromosomes(SRR303_with587_vsdroSim1_reCall)
+
+
+SRR002_with587_vsdroSim1_reCall <- significate_all_chromosomes(SRR002_with587_vsdroSim1_reCall)
+SRR570_with587_vsdroSim1_reCall <- significate_all_chromosomes(SRR570_with587_vsdroSim1_reCall)
+
+
+all_recalls.subset <- c(tenA_with587_vsdroSim1_reCall, tenB_with587_vsdroSim1_reCall, thirteenA_with587_vsdroSim1_reCall, thirteenB_with587_vsdroSim1_reCall, seventeenA_with587_vsdroSim1_reCall, seventeenB_with587_vsdroSim1_reCall, SRR303_with587_vsdroSim1_reCall, SRR002_with587_vsdroSim1_reCall, SRR570_with587_vsdroSim1_reCall)
+
+all_recalls.chr2L <- all_recalls.subset[all_recalls.subset@seqnames == "chr2L"]
+#all_recalls.subset <- all_recalls[all_recalls@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+
+```
+```{r echo=FALSE}
+
+fdr_cutoff=0.1
+
+```
+```{r echo=FALSE}
+
+autoplot(all_recalls.chr2L, aes(y=ratio, group=sample, linetype=treatment), geom='line') + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff)), color="red" ) + scale_alpha_discrete(range=c(0,1))
+
+
+autoplot(all_recalls.subset, aes(y=ratio, group=sample, linetype=treatment), geom='line') + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="red" ) + scale_alpha_discrete(range=c(0,1)) + facet_wrap(~seqnames, scale="free")
+
+```
+```{r echo=FALSE}
+#write significant windows to a bed file
+#https://www.biostars.org/p/89341/
+
+all_recalls.subset.df <- data.frame(seqnames = seqnames(all_recalls.subset), starts=start(all_recalls.subset)-1, ends = end(all_recalls.subset), names= all_recalls.subset$sample, scores = all_recalls.subset$fdr, strands = c(rep(".", length(all_recalls.subset))), treatment=all_recalls.subset$treatment)
+
+all_recalls.subset.df$starts <- format(all_recalls.subset.df$starts, scientific = FALSE)
+all_recalls.subset.df$ends <- format(all_recalls.subset.df$ends, scientific = FALSE)
+
+all_recalls.subset.df.sig <- all_recalls.subset.df %>% subset(scores < fdr_cutoff)
+
+#write.table(all_recalls.subset.df.sig %>% subset(treatment == "selection"), file="sig_in_select.bed", quote=F, sep="\t", row.names=F, col.names=F)
+
+#write.table(all_recalls.subset.df.sig %>% subset(treatment == "control"), file="sig_in_control.bed", quote=F, sep="\t", row.names=F, col.names=F)
+
+# these need a pass through tr -d " "
+
+
+# bedtools intersect -v -wa -a sig_in_select.bed -b sig_in_control.bed | bedtools sort -i - | bedtools map -c 1 -o count -a dm6_w100000_s100000.windows.bed  -b - | awk '{if($4>0)print;}'
+ 
+
+```  
+
+
+Most of the windows identified as introgressed candidates appear to be in questionable, repetitive regions near the centromere. The only window which seems plausible is chr2L:16500001-16600000, identified in two selection lines (17A and SRR303333) This window contains Trp-2, a couple small RNAs, and several CGs. This does appear to overlap a region identified in Table 2 of the current manuscript. 
+
+
+```{r echo=FALSE}
+autoplot(all_recalls.subset, aes(y=ratio, group=sample, linetype=replicate, color=treatment), geom='line') + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="red" ) + scale_alpha_discrete(range=c(0,1)) + facet_grid(line~seqnames, scale="free_x")
+```  
+
+display as percentage rather than ratio:
+
+```{r echo=FALSE}
+
+import_percentage <- function(filename, samp, line, rep, treat){
+  percentTest <- import.bedGraph(filename, genome="dm6")
+
+  names(percentTest@elementMetadata) <- c("count", "total")
+  percentTest <- percentTest[percentTest$total > 0]
+  percentTest$percent <- percentTest$count / percentTest$total
+  percentTest$sample <- as.factor(samp)
+  percentTest$treatment <- as.factor(treat)
+  percentTest$line <- as.factor(line)
+  percentTest$replicate <- as.factor(rep)
+    
+  return(percentTest)
+}
+
+percentage_10A <- import_percentage("analysis_out/10A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_10A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.bed", "10A", "10", "A", "selection")
+percentage_10B <- import_percentage("analysis_out/10B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_10B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.bed", "10B","10", "B", "selection")
+percentage_13A <- import_percentage("analysis_out/13A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_13A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.bed", "13A", "13", "A", "selection")
+percentage_13B <- import_percentage("analysis_out/13B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_13B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.bed", "13B", "13", "B", "selection")
+percentage_17A <- import_percentage("analysis_out/17A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_17A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.bed", "17A", "17", "A", "selection")
+percentage_17B <- import_percentage("analysis_out/17B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_17B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.bed", "17B", "17", "B", "selection")
+percentage_SRR303333 <- import_percentage("analysis_out/SRR303333.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR303333.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.bed", "SRR303333",  "SRR303333", "0", "selection")
+percentage_SRR6426002 <- import_percentage("analysis_out/SRR6426002.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR6426002.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.bed", "SRR6426002", "SRR6426002", "0","control")
+percentage_SRR5860570 <- import_percentage("analysis_out/SRR5860570.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR5860570.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.bed", "SRR5860570", "SRR5860570", "0", "control")
+
+recall_percentages <- c(percentage_10A,percentage_10B,percentage_13A,percentage_13B,percentage_17A,percentage_17B,percentage_SRR303333,percentage_SRR6426002,percentage_SRR5860570)
+
+recall_percentages.chr2L <- recall_percentages[recall_percentages@seqnames == "chr2L"]
+
+recall_percentages.subset <- recall_percentages[recall_percentages@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+#autoplot(recall_percentages.chr2L, aes(y=percent, group=sample, color=sample, linetype=treatment), geom='line')
+
+autoplot(recall_percentages.subset, aes(y=percent, group=sample, linetype=replicate, color=treatment), geom='line') + facet_grid(line~seqnames, scale="free_x") + labs(y="percent Simulans")
+```
+
+
+### Masking with TooHeavy files
+
+These are self-masking, since they don't lift :(
+
+```{r echo=FALSE}
+#variant_comparisons/10A.bwa.joint.sharedWith.SRR869587.bwa.joint.vs_droSec1.lift2dm6.vcfNaive.tooHeavy.sharedSnps.bed
+```
+
+
+### Masking with repeat density
+
+Repeat density distribution on dm6:
+```{r echo=FALSE}
+dm6_rptDens <- import.bedGraph("dm6_w100000_s100000.repeatDensity.bed", genome="dm6")
+names(dm6_rptDens@elementMetadata) <- c("count", "nt", "winsize", "density")
+dm6_rptDens <- dm6_rptDens[dm6_rptDens@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+rptDens_cutoff<- 0.3
+ggplot(dm6_rptDens) + geom_density(aes(group=seqnames, color=seqnames, x=density, y=..scaled..)) + geom_vline(xintercept=rptDens_cutoff, color='blue') + geom_vline(xintercept=rptDens_cutoff, color='blue') + labs(title="Distribution of RepeatMasker Coverage, by Chromosome, with Density Cutoff", y="Scaled Distribution Density", x="Coverage Density" ) + geom_text(aes(x=rptDens_cutoff, label=paste("\nRepeatMasker cutoff: ", rptDens_cutoff), y=0.4), colour="blue", angle=90, text=element_text(size=11))
+
+```
+repeat density cutoff of 0.3 used
+```{r echo=FALSE}
+
+
+import_masked <- function(filename, samp, line, rep, treat){
+  maskedIn <- import.bedGraph(filename, genome="dm6")
+
+  names(maskedIn@elementMetadata) <- c( "actual", "potential")
+  maskedIn$ratio <- maskedIn$actual / maskedIn$potential
+  maskedIn$sample <- as.factor(samp)
+  maskedIn$line <- as.factor(line)
+  maskedIn$replicate <- as.factor(rep)
+  maskedIn$treatment <- as.factor(treat)
+    
+  return(maskedIn)
+}
+
+masked_10A_recall <- import_masked("analysis_out/10A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "10A", "10", "A", "selection")
+masked_10B_recall <- import_masked("analysis_out/10B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "10B", "10", "B", "selection")
+masked_13A_recall <- import_masked("analysis_out/13A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "13A", "13", "A", "selection")
+masked_13B_recall <- import_masked("analysis_out/13B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "13B", "13", "B", "selection")
+masked_17A_recall <- import_masked("analysis_out/17A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "17A", "17", "A", "selection")
+masked_17B_recall <- import_masked("analysis_out/17B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "17B", "17", "B", "selection")
+masked_SRR303_recall <- import_masked("analysis_out/SRR303333.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR303333", "SRR303333", "0", "selection")
+masked_SRR6002_recall <- import_masked("analysis_out/SRR6426002.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed","SRR6426002", "SRR6426002", "0", "control")
+masked_SRR570_recall <- import_masked("analysis_out/SRR5860570.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint.vs_droSim1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed","SRR5860570", "SRR5860570", "0", "control")
+
+
+```
+
+```{r echo=FALSE}
+masked_10A_recall<- significate_all_chromosomes(masked_10A_recall)
+masked_10B_recall<- significate_all_chromosomes(masked_10B_recall)
+masked_13A_recall<- significate_all_chromosomes(masked_13A_recall)
+masked_13B_recall<- significate_all_chromosomes(masked_13B_recall)
+masked_17A_recall<- significate_all_chromosomes(masked_17A_recall)
+masked_17B_recall<- significate_all_chromosomes(masked_17B_recall)
+masked_SRR303_recall<- significate_all_chromosomes(masked_SRR303_recall)
+masked_SRR6002_recall<- significate_all_chromosomes(masked_SRR6002_recall)
+masked_SRR570_recall<- significate_all_chromosomes(masked_SRR570_recall)
+
+all_masked_recall.subset <- c(masked_10A_recall,masked_10B_recall,masked_13A_recall,masked_13B_recall,masked_17A_recall,masked_17B_recall,masked_SRR303_recall,masked_SRR6002_recall,masked_SRR570_recall)
+
+all_masked_recall.chr2L <- all_masked_recall.subset[all_masked_recall.subset@seqnames == "chr2L"]
+
+#all_masked_recall.subset <- all_masked_recall[all_masked_recall@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+
+```
+
+```{r echo=FALSE}
+autoplot(all_masked_recall.chr2L, aes(y=ratio, group=sample, linetype=treatment), geom='line') + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff)), color="red" ) + scale_alpha_discrete(range=c(0,1))
+
+autoplot(all_masked_recall.subset, aes(y=ratio, group=sample, linetype=replicate, color=treatment), geom='line') + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="red" ) + scale_alpha_discrete(range=c(0,1)) + facet_grid(line~seqnames, scale="free_x")
+```
+
+```{r echo=FALSE}
+#all_masked_recall.chr2L$masked <- as.factor(TRUE) 
+#all_recalls.chr2L$masked <- as.factor(FALSE) 
+#recalls_full.chr2L <- c(all_masked_recall.chr2L, all_recalls.chr2L)
+
+#autoplot(all_recalls.chr2L, aes(y=ratio, group=sample, linetype=treatment), geom='line', alpha=0.5) + geom_line(data=all_masked_recall.chr2L@elementMetadata,aes(y=ratio, group=sample, linetype=treatment), alpha=1)#+ geom_point( aes( alpha=as.factor(fdr < fdr_cutoff)), color="red" ) + scale_alpha_discrete(range=c(0,1))
+
+#all_masked_recall.subset$masked <- as.factor(TRUE) 
+#all_recalls.subset$masked <- as.factor(FALSE) 
+#recalls_full.subset <- c(all_masked_recall.subset, all_recalls.subset)
+
+
+#autoplot(recalls_full.subset, aes(y=ratio, group=sample, linetype=replicate, color=treatment, alpha=masked), geom='line') + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="red" ) + scale_alpha_discrete(range=c(0,1)) + facet_grid(line~seqnames, scale="free_x")
+```
+
+```{r echo=FALSE}
+all_recalls.masked.subset.df <- data.frame(seqnames = seqnames(all_masked_recall.subset), starts=start(all_masked_recall.subset)-1, ends = end(all_masked_recall.subset), names= all_masked_recall.subset$sample, scores = all_masked_recall.subset$fdr, strands = c(rep(".", length(all_masked_recall.subset))), treatment=all_masked_recall.subset$treatment)
+
+all_recalls.masked.subset.df$starts <- format(all_recalls.masked.subset.df$starts, scientific = FALSE)
+all_recalls.masked.subset.df$ends <- format(all_recalls.masked.subset.df$ends, scientific = FALSE)
+
+all_recalls.masked.subset.df.sig <- all_recalls.masked.subset.df %>% subset(scores < fdr_cutoff)
+
+write.table(all_recalls.masked.subset.df.sig %>% subset(treatment == "selection"), file="sig_in_select.masked.ratio.bed", quote=F, sep="\t", row.names=F, col.names=F)
+
+write.table(all_recalls.masked.subset.df.sig %>% subset(treatment == "control"), file="sig_in_control.masked.ratio.bed", quote=F, sep="\t", row.names=F, col.names=F)
+
+```
+
+
+#### repeat-masked percent
+
+
+```{r echo=FALSE}
+
+#import_percentage <- function(filename, samp, line, rep, treat)
+tenA_recall_masked_percent <- import_percentage("analysis_out/10A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_10A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "10A", "10", "A", "selection")
+tenB_recall_masked_percent <- import_percentage("analysis_out/10B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_10B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "10B", "10", "B", "selection")
+thirteenA_recall_masked_percent <- import_percentage("analysis_out/13A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_13A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "13A", "13", "A", "selection")
+thirteenB_recall_masked_percent <- import_percentage("analysis_out/13B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_13B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "13B", "13", "B", "selection")
+seventeenA_recall_masked_percent <- import_percentage("analysis_out/17A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_17A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "17A", "17", "A", "selection")
+seventeenB_recall_masked_percent <- import_percentage("analysis_out/17B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_17B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "17B", "17", "B", "selection")
+SRR303_recall_masked_percent <- import_percentage("analysis_out/SRR303333.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR303333.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR303333", "SRR303333", "0", "selection")
+SRR570_recall_masked_percent <- import_percentage("analysis_out/SRR5860570.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR5860570.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR5860570", "SRR5860570", "0", "control")
+SRR6002_recall_masked_percent <- import_percentage("analysis_out/SRR6426002.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR6426002.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR6426002", "SRR6426002", "0", "control")
+```
+
+```{r echo=FALSE}
+significate_all_chromosomes.percent <- function(granges_in) {
+
+  granges_in$rawP <- as.numeric(1)
+  granges_in$fdr <- as.numeric(1)
+
+  blank_granges <- granges_in[ 1==2]
+
+  
+  for (seq in granges_in@seqnames@values ) {
+  
+    #print(seq)  
+
+    
+    tmp_granges <- granges_in[granges_in@seqnames == seq ]
+    tmp_granges$rawP <- significator(tmp_granges$percent)
+#    tmp_granges$fdr <- p.adjust(tmp_granges$rawP, method ="BH")
+    blank_granges <- c(blank_granges, tmp_granges)
+    
+    }
+  blank_granges <- subset_to_standard(blank_granges)
+  blank_granges$fdr <- p.adjust(blank_granges$rawP, method ="BH")
+  return(blank_granges)
+}
+
+```
+
+```{r echo=FALSE}
+tenA_recall_masked_percent <- significate_all_chromosomes.percent(tenA_recall_masked_percent)
+tenB_recall_masked_percent <- significate_all_chromosomes.percent(tenB_recall_masked_percent)
+thirteenA_recall_masked_percent <- significate_all_chromosomes.percent(thirteenA_recall_masked_percent)
+thirteenB_recall_masked_percent <- significate_all_chromosomes.percent(thirteenB_recall_masked_percent)
+seventeenA_recall_masked_percent <- significate_all_chromosomes.percent(seventeenA_recall_masked_percent)
+seventeenB_recall_masked_percent <- significate_all_chromosomes.percent(seventeenB_recall_masked_percent)
+SRR303_recall_masked_percent <- significate_all_chromosomes.percent(SRR303_recall_masked_percent)
+SRR570_recall_masked_percent <- significate_all_chromosomes.percent(SRR570_recall_masked_percent)
+SRR6002_recall_masked_percent <- significate_all_chromosomes.percent(SRR6002_recall_masked_percent)
+
+
+all_masked_recall_percent.subset <- c(tenA_recall_masked_percent,tenB_recall_masked_percent,thirteenA_recall_masked_percent,thirteenB_recall_masked_percent,seventeenA_recall_masked_percent,seventeenB_recall_masked_percent,SRR303_recall_masked_percent,SRR570_recall_masked_percent,SRR6002_recall_masked_percent)
+
+all_masked_recall_percent.chr2L <- all_masked_recall_percent.subset[all_masked_recall_percent.subset@seqnames == "chr2L"]
+
+#all_masked_recall_percent.subset <- all_masked_recall_percent[all_masked_recall_percent@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+```
+
+```{r echo=FALSE}
+autoplot(all_masked_recall_percent.chr2L, aes(y=percent, group=sample, linetype=treatment), geom='line') + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff)), color="red" ) + scale_alpha_discrete(range=c(0,1))
+
+autoplot(all_masked_recall_percent.subset, aes(y=percent, group=sample, linetype=replicate, color=treatment), geom='line') + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="red" ) + scale_alpha_discrete(range=c(0,1)) + facet_grid(line~seqnames, scale="free_x")
+
+```
+
+
+
+
+### New significator; merging significance
+
+[@Earley2011] used a normal distribution parameterized with chromosome-wide mean and standard deviation to test significance. Here a different test will be used, (binomial vs. chromosome-wide mean ). Use of Stouffer's method to merge results across lines will also be tested. 
+
+Windows with no detected parental SNPs were excluded; they are not informative and the binomial test fails on them. 
+
+
+```{r echo=FALSE}
+# define the significance function
+
+binomial_significator <- function(potential,actual, alt){
+#  med <- median(actual/potential,na.rm=TRUE)
+  med <- mean(actual/potential,na.rm=TRUE)
+  raw_peas <- as.numeric( map2(actual, potential, function(act,pot) binom.test(act, pot, med, alternative=alt)$p.value))
+  #gotta adjust the DoF to reflect that the null (med) is estimated from the data
+  return(raw_peas)
+}
+
+significate_all_chromosomes <- function(granges_in, direction) {
+
+  granges_in$rawP <- as.double(1)
+  granges_in$fdr <- as.double(1)
+
+  blank_granges <- granges_in[ 1==2]
+
+  
+  for (seq in granges_in@seqnames@values ) {
+
+    tmp_granges <- granges_in[(granges_in@seqnames == seq) & (granges_in$potential > 0) ]
+    tmp_granges$rawP <- binomial_significator(tmp_granges$potential, tmp_granges$actual, direction)
+#    tmp_granges$fdr <- p.adjust(tmp_granges$rawP, method ="BH")
+    blank_granges <- c(blank_granges, tmp_granges)
+    
+    }
+  blank_granges <- subset_to_standard(blank_granges)
+  blank_granges$fdr <- p.adjust(blank_granges$rawP, method ="BH")
+  return(blank_granges)
+}
+
+```
+
+```{r echo=FALSE}
+masked_10A_recall<- significate_all_chromosomes(masked_10A_recall, "less")
+masked_10B_recall<- significate_all_chromosomes(masked_10B_recall, "less")
+masked_13A_recall<- significate_all_chromosomes(masked_13A_recall, "less")
+masked_13B_recall<- significate_all_chromosomes(masked_13B_recall, "less")
+masked_17A_recall<- significate_all_chromosomes(masked_17A_recall, "less")
+masked_17B_recall<- significate_all_chromosomes(masked_17B_recall, "less")
+masked_SRR303_recall<- significate_all_chromosomes(masked_SRR303_recall, "less")
+masked_SRR6002_recall<- significate_all_chromosomes(masked_SRR6002_recall, "less")
+masked_SRR570_recall<- significate_all_chromosomes(masked_SRR570_recall, "less")
+
+all_masked_recall.subset <- c(masked_10A_recall,masked_10B_recall,masked_13A_recall,masked_13B_recall,masked_17A_recall,masked_17B_recall,masked_SRR303_recall,masked_SRR6002_recall,masked_SRR570_recall)
+
+all_masked_recall.chr2L <- all_masked_recall.subset[all_masked_recall.subset@seqnames == "chr2L"]
+
+#all_masked_recall.subset <- all_masked_recall[all_masked_recall@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+
+```
+
+```{r echo=FALSE}
+
+row_stouf <- function(x) {
+  zee = tryCatch(sumz(x)$p[[1]], error = function(e) {print(paste("warning; queasy data", x)); 1})
+  return(zee) 
+    }
+
+stoufferator <- function(granges.list) {
+  seeks <- granges.list[[1]]@seqnames@values
+
+  mega_grange <- granges.list[[1]]
+  mega_grange@elementMetadata <- mega_grange@elementMetadata[c()]
+  mega_grange$stouffP <- 1
+  mega_grange$stouffFDR <- 1
+  mega_grange <- mega_grange[1==2]
+
+  for (seq in seeks){
+    print(seq)
+    peas <- c()  
+
+    mini_grange <- granges.list[[1]]
+    mini_grange <- mini_grange[mini_grange@seqnames == seq]
+    mini_grange@elementMetadata <- mini_grange@elementMetadata[c()]
+
+    for (inducks in seq(1, length(granges.list))) {
+      grange <- granges.list[[inducks]]
+      peas <- cbind(peas, grange[grange@seqnames == seq]$rawP)
+    }
+
+    mini_grange$stouffP <- apply(peas, 1, row_stouf)
+#    mini_grange$stouffFDR <- p.adjust(mini_grange$stouffP, method ="BH")
+
+    mega_grange <- c(mega_grange, mini_grange)
+
+  }
+  mega_grange <- subset_to_standard(mega_grange)
+  mega_grange$stouffFDR <- p.adjust(mega_grange$stouffP, method ="BH")
+  
+  return(mega_grange)
+}
+
+```
+
+Once the binomial test had been used to identify significant windows in lines 10A/B, 17A/B, and SRR303333, the significance values at each window were merged using Stouffer's method, treating technical replicates as independent. Line 13 was excluded. Lines SRR6426002 and SRR5860570 were used to call significant control windows in the same manner. 
+
+```{r echo=FALSE}
+
+#home_on_the_grange_selection<- GRangesList(masked_10A_recall,masked_10B_recall, masked_13A_recall, masked_13B_recall, masked_17A_recall, masked_17B_recall, masked_SRR303_recall)
+home_on_the_grange_selection<- GRangesList(masked_10A_recall,masked_10B_recall, masked_17A_recall, masked_17B_recall, masked_SRR303_recall)
+
+pea_on_your_plate.select.subset <- stoufferator(home_on_the_grange_selection)
+
+pea_on_your_plate.select.subset$blup <- 1
+
+pea_on_your_plate.select.chr2L <- pea_on_your_plate.select.subset[pea_on_your_plate.select.subset@seqnames=='chr2L']
+#pea_on_your_plate.select.subset <- pea_on_your_plate.select[pea_on_your_plate.select@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+pea_on_your_plate.select.subset$line <- as.factor("10") 
+pea_on_your_plate.select.subset.full <- pea_on_your_plate.select.subset
+pea_on_your_plate.select.subset$line <- as.factor("13") 
+pea_on_your_plate.select.subset.full <- c(pea_on_your_plate.select.subset.full, pea_on_your_plate.select.subset)
+pea_on_your_plate.select.subset$line <- as.factor("17") 
+pea_on_your_plate.select.subset.full <- c(pea_on_your_plate.select.subset.full, pea_on_your_plate.select.subset)
+pea_on_your_plate.select.subset$line <- as.factor("SRR303333") 
+pea_on_your_plate.select.subset.full <- c(pea_on_your_plate.select.subset.full, pea_on_your_plate.select.subset)
+pea_on_your_plate.select.subset@elementMetadata <- pea_on_your_plate.select.subset@elementMetadata[ , !(names(pea_on_your_plate.select.subset@elementMetadata) %in% c("line"))]
+
+home_on_the_grange_control<- GRangesList(masked_SRR6002_recall ,masked_SRR570_recall)
+
+pea_on_your_plate.control.subset <- stoufferator(home_on_the_grange_control)
+
+pea_on_your_plate.control.subset$blup <- 1
+
+pea_on_your_plate.control.chr2L <- pea_on_your_plate.control.subset[pea_on_your_plate.control.subset@seqnames=='chr2L']
+#pea_on_your_plate.control.subset <- pea_on_your_plate.control[pea_on_your_plate.control@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+
+pea_on_your_plate.control.subset$line <- as.factor("SRR6426002") 
+pea_on_your_plate.control.subset.full <- pea_on_your_plate.control.subset
+pea_on_your_plate.control.subset$line <- as.factor("SRR5860570") 
+pea_on_your_plate.control.subset.full <- c(pea_on_your_plate.control.subset.full, pea_on_your_plate.control.subset)
+pea_on_your_plate.control.subset@elementMetadata <- pea_on_your_plate.control.subset@elementMetadata[ , !(names(pea_on_your_plate.control.subset@elementMetadata) %in% c("line"))]
+
+
+pea_on_your_plate.subset.full <- c(pea_on_your_plate.control.subset.full, pea_on_your_plate.select.subset.full)
+
+
+pea_on_your_plate.control.subset$treatment <- as.factor("control")
+pea_on_your_plate.select.subset$treatment <- as.factor("selection")
+
+pea_on_your_plate.subset.collapsed <- c(pea_on_your_plate.select.subset,pea_on_your_plate.control.subset)
+pea_on_your_plate.subset.collapsed.df <- pea_on_your_plate.subset.collapsed@elementMetadata
+pea_on_your_plate.subset.collapsed.df$chrom <- as.factor(pea_on_your_plate.subset.collapsed@seqnames)
+pea_on_your_plate.subset.collapsed.df <- as.data.frame(pea_on_your_plate.subset.collapsed.df)
+
+pea_on_your_plate.control.subset@elementMetadata <- pea_on_your_plate.control.subset@elementMetadata[ , !(names(pea_on_your_plate.control.subset@elementMetadata) %in% c("treatment"))]
+pea_on_your_plate.select.subset@elementMetadata <- pea_on_your_plate.select.subset@elementMetadata[ , !(names(pea_on_your_plate.select.subset@elementMetadata) %in% c("treatment"))]
+```
+
+```{r echo=FALSE}
+
+autoplot(all_masked_recall.chr2L, aes(y=ratio, group=sample, linetype=treatment), geom='line', alpha=0) +geom_bar(data=pea_on_your_plate.select.chr2L, aes(fill=-log(stouffFDR), y=blup), alpha=0.75) + scale_fill_viridis(option='magma', direction=-1) + geom_line(aes(y=ratio, group=sample, linetype=treatment)) + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff)), color="red" ) + scale_alpha_discrete(range=c(0,1)) + theme_clear()
+
+
+
+autoplot(all_masked_recall.subset, aes(y=ratio, group=sample, linetype=replicate, color=treatment), geom='line', alpha=0) + geom_bar(data=pea_on_your_plate.select.subset, aes(fill=-log(stouffFDR), y=blup), alpha=0.75) + scale_fill_viridis(option='magma', direction=-1) + geom_line(aes(y=ratio, group=sample, linetype=replicate, color=treatment)) + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="red" ) + scale_alpha_discrete(range=c(0,1)) + facet_grid(line~seqnames, scale="free_x") + theme_clear()
+
+
+
+autoplot(all_masked_recall.subset, aes(y=ratio, group=sample, linetype=replicate, color=treatment), geom='line', alpha=0) + geom_bar(data=pea_on_your_plate.subset.full, aes(fill=-log(stouffFDR), y=blup), alpha=0.75) + scale_fill_viridis(option='magma', direction=-1) + geom_line(aes(y=ratio, group=sample, linetype=replicate, color=treatment)) + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="blue", shape=1 ) + scale_alpha_discrete(range=c(0,0.5)) + facet_grid(line~seqnames, scale="free_x") + theme_clear() + labs(title="PsiSeq2 Reanalysis,\n using binomial test to call individual significance\n and Stouffer's test to merge results across lines", x="Chromosome Coordinate", y="Fraction of SRR869587 SNPs Retained") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
+ggplot(pea_on_your_plate.subset.collapsed.df) + geom_density(aes(color=chrom, x=stouffFDR, y=..scaled.., linetype=treatment)) + geom_vline(xintercept=fdr_cutoff, color='blue') + labs(title="Distribution of Stouffer's Test FDR for Control and Selected Treatments, by Chromosome, with FDR Cutoff", y="Density", x="FDR" ) + geom_text(aes(x=fdr_cutoff, label=paste("FDR cutoff: ", fdr_cutoff), y=0.8), colour="blue", angle=90, text=element_text(size=11))
+
+
+
+```
+
+```{r echo=FALSE}
+
+pea_on_your_plate.subset.collapsed.df <- data.frame(seqnames = seqnames(pea_on_your_plate.subset.collapsed), starts=start(pea_on_your_plate.subset.collapsed)-1, ends = end(pea_on_your_plate.subset.collapsed), names=c(rep("NA", length(pea_on_your_plate.subset.collapsed))), scores = pea_on_your_plate.subset.collapsed$stouffFDR, strands = c(rep(".", length(pea_on_your_plate.subset.collapsed))), treatment=pea_on_your_plate.subset.collapsed$treatment)
+
+pea_on_your_plate.subset.collapsed.df$starts <- format(pea_on_your_plate.subset.collapsed.df$starts, scientific = FALSE)
+pea_on_your_plate.subset.collapsed.df$ends <- format(pea_on_your_plate.subset.collapsed.df$ends, scientific = FALSE)
+
+pea_on_your_plate.subset.collapsed.df.sig <- pea_on_your_plate.subset.collapsed.df %>% subset(scores < fdr_cutoff)
+
+write.table(pea_on_your_plate.subset.collapsed.df.sig %>% subset(treatment == "selection"), file="sig_in_select.masked.ratio.stoufferatedBinomial.bed", quote=F, sep="\t", row.names=F, col.names=F)
+
+write.table(pea_on_your_plate.subset.collapsed.df.sig %>% subset(treatment == "control"), file="sig_in_control.masked.ratio.stoufferatedBinomial.bed", quote=F, sep="\t", row.names=F, col.names=F)
+
+
+
+```
+
+#### Applied to comparison vs. droSec1
+
+The above plots display patterns of depletion of Sec-like variant sites (ie, sites of SRR869587 disagreement with the droSim1 reference). This is re-run using Sim-like variants (ie, sites of disagreement with the droSec1 reference ), showing qualitatively similar patterns (the signal here is of retention of simulans character; it appears as an upward deflection)
+
+```{r echo=FALSE}
+
+masked_10A_recall.vsDroSec1 <- import_masked("analysis_out/10A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.vs_droSec1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "10A", "10", "A", "selection")
+masked_10B_recall.vsDroSec1 <- import_masked("analysis_out/10B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.vs_droSec1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "10B", "10", "B", "selection")
+masked_13A_recall.vsDroSec1 <- import_masked("analysis_out/13A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.vs_droSec1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "13A", "13", "A", "selection")
+masked_13B_recall.vsDroSec1 <- import_masked("analysis_out/13B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.vs_droSec1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "13B", "13", "B", "selection")
+masked_17A_recall.vsDroSec1 <- import_masked("analysis_out/17A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.vs_droSec1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "17A", "17", "A", "selection")
+masked_17B_recall.vsDroSec1 <- import_masked("analysis_out/17B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.vs_droSec1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "17B", "17", "B", "selection")
+masked_SRR303_recall.vsDroSec1 <- import_masked("analysis_out/SRR303333.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.vs_droSec1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR303333", "SRR303333", "0", "selection")
+masked_SRR6002_recall.vsDroSec1 <- import_masked("analysis_out/SRR6426002.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.vs_droSec1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed","SRR6426002", "SRR6426002", "0", "control")
+masked_SRR570_recall.vsDroSec1 <- import_masked("analysis_out/SRR5860570.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.vs_droSec1.lift2dm6.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed","SRR5860570", "SRR5860570", "0", "control")
+
+```
+
+```{r echo=FALSE}
+
+
+masked_10A_recall.vsDroSec1<- significate_all_chromosomes(masked_10A_recall.vsDroSec1, "greater")
+masked_10B_recall.vsDroSec1<- significate_all_chromosomes(masked_10B_recall.vsDroSec1, "greater")
+masked_13A_recall.vsDroSec1<- significate_all_chromosomes(masked_13A_recall.vsDroSec1, "greater")
+masked_13B_recall.vsDroSec1<- significate_all_chromosomes(masked_13B_recall.vsDroSec1, "greater")
+masked_17A_recall.vsDroSec1<- significate_all_chromosomes(masked_17A_recall.vsDroSec1, "greater")
+masked_17B_recall.vsDroSec1<- significate_all_chromosomes(masked_17B_recall.vsDroSec1, "greater")
+masked_SRR303_recall.vsDroSec1<- significate_all_chromosomes(masked_SRR303_recall.vsDroSec1, "greater")
+masked_SRR6002_recall.vsDroSec1<- significate_all_chromosomes(masked_SRR6002_recall.vsDroSec1, "greater")
+masked_SRR570_recall.vsDroSec1<- significate_all_chromosomes(masked_SRR570_recall.vsDroSec1, "greater")
+
+all_masked_recall.vsDroSec1 <- c(masked_10A_recall.vsDroSec1,masked_10B_recall.vsDroSec1,masked_13A_recall.vsDroSec1,masked_13B_recall.vsDroSec1,masked_17A_recall.vsDroSec1,masked_17B_recall.vsDroSec1,masked_SRR303_recall.vsDroSec1,masked_SRR6002_recall.vsDroSec1,masked_SRR570_recall.vsDroSec1)
+
+all_masked_recall.vsDroSec1.chr2L <- all_masked_recall.vsDroSec1[all_masked_recall.vsDroSec1@seqnames == "chr2L"]
+
+all_masked_recall.vsDroSec1.subset <- all_masked_recall.vsDroSec1[all_masked_recall.vsDroSec1@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+```
+
+```{r echo=FALSE}
+home_on_the_grange_selection<- GRangesList(masked_10A_recall.vsDroSec1,masked_10B_recall.vsDroSec1, masked_17A_recall.vsDroSec1, masked_17B_recall.vsDroSec1, masked_SRR303_recall.vsDroSec1)
+
+pea_on_your_plate.select <- stoufferator(home_on_the_grange_selection)
+
+pea_on_your_plate.select$blup <- 1
+
+pea_on_your_plate.select.chr2L <- pea_on_your_plate.select[pea_on_your_plate.select@seqnames=='chr2L']
+pea_on_your_plate.select.subset <- pea_on_your_plate.select[pea_on_your_plate.select@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+pea_on_your_plate.select.subset$line <- as.factor("10") 
+pea_on_your_plate.select.subset.full <- pea_on_your_plate.select.subset
+pea_on_your_plate.select.subset$line <- as.factor("13") 
+pea_on_your_plate.select.subset.full <- c(pea_on_your_plate.select.subset.full, pea_on_your_plate.select.subset)
+pea_on_your_plate.select.subset$line <- as.factor("17") 
+pea_on_your_plate.select.subset.full <- c(pea_on_your_plate.select.subset.full, pea_on_your_plate.select.subset)
+pea_on_your_plate.select.subset$line <- as.factor("SRR303333") 
+pea_on_your_plate.select.subset.full <- c(pea_on_your_plate.select.subset.full, pea_on_your_plate.select.subset)
+pea_on_your_plate.select.subset@elementMetadata <- pea_on_your_plate.select.subset@elementMetadata[ , !(names(pea_on_your_plate.select.subset@elementMetadata) %in% c("line"))]
+
+
+home_on_the_grange_control<- GRangesList(masked_SRR6002_recall.vsDroSec1 ,masked_SRR570_recall.vsDroSec1)
+
+pea_on_your_plate.control <- stoufferator(home_on_the_grange_control)
+
+pea_on_your_plate.control$blup <- 1
+
+pea_on_your_plate.control.chr2L <- pea_on_your_plate.control[pea_on_your_plate.control@seqnames=='chr2L']
+pea_on_your_plate.control.subset <- pea_on_your_plate.control[pea_on_your_plate.control@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+
+pea_on_your_plate.control.subset$line <- as.factor("SRR6426002") 
+pea_on_your_plate.control.subset.full <- pea_on_your_plate.control.subset
+pea_on_your_plate.control.subset$line <- as.factor("SRR5860570") 
+pea_on_your_plate.control.subset.full <- c(pea_on_your_plate.control.subset.full, pea_on_your_plate.control.subset)
+pea_on_your_plate.control.subset@elementMetadata <- pea_on_your_plate.control.subset@elementMetadata[ , !(names(pea_on_your_plate.control.subset@elementMetadata) %in% c("line"))]
+
+
+pea_on_your_plate.subset.full <- c(pea_on_your_plate.control.subset.full, pea_on_your_plate.select.subset.full)
+
+
+pea_on_your_plate.control.subset$treatment <- as.factor("control")
+pea_on_your_plate.select.subset$treatment <- as.factor("selection")
+
+pea_on_your_plate.subset.collapsed <- c(pea_on_your_plate.select.subset,pea_on_your_plate.control.subset)
+pea_on_your_plate.subset.collapsed.df <- pea_on_your_plate.subset.collapsed@elementMetadata
+pea_on_your_plate.subset.collapsed.df$chrom <- as.factor(pea_on_your_plate.subset.collapsed@seqnames)
+pea_on_your_plate.subset.collapsed.df <- as.data.frame(pea_on_your_plate.subset.collapsed.df)
+
+pea_on_your_plate.control.subset@elementMetadata <- pea_on_your_plate.control.subset@elementMetadata[ , !(names(pea_on_your_plate.control.subset@elementMetadata) %in% c("treatment"))]
+pea_on_your_plate.select.subset@elementMetadata <- pea_on_your_plate.select.subset@elementMetadata[ , !(names(pea_on_your_plate.select.subset@elementMetadata) %in% c("treatment"))]
+```
+
+```{r echo=FALSE}
+
+autoplot(all_masked_recall.vsDroSec1.chr2L, aes(y=ratio, group=sample, linetype=treatment), geom='line', alpha=0) +geom_bar(data=pea_on_your_plate.select.chr2L, aes(fill=-log(stouffFDR), y=blup), alpha=0.75) + scale_fill_viridis(option='magma', direction=-1) + geom_line(aes(y=ratio, group=sample, linetype=treatment)) + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff)), color="red" ) + scale_alpha_discrete(range=c(0,1)) + theme_clear()
+
+autoplot(all_masked_recall.vsDroSec1.subset, aes(y=ratio, group=sample, linetype=replicate, color=treatment), geom='line') + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="red" ) + scale_alpha_discrete(range=c(0,1)) + facet_grid(line~seqnames, scale="free_x")
+
+#autoplot(all_masked_recall.vsDroSec1.subset, aes(y=ratio, group=sample, linetype=replicate, color=treatment), geom='line', alpha=0) + geom_bar(data=pea_on_your_plate.subset.full, aes(fill=-log(stouffFDR), y=blup), alpha=0.75) + scale_fill_viridis(option='magma', direction=-1) + geom_line(aes(y=ratio, group=sample, linetype=replicate, color=treatment)) + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="red" ) + scale_alpha_discrete(range=c(0,1)) + facet_grid(line~seqnames, scale="free_x") + theme_clear()
+
+
+
+autoplot(all_masked_recall.vsDroSec1.subset, aes(y=ratio, group=sample, linetype=replicate, color=treatment), geom='line', alpha=0) + geom_bar(data=pea_on_your_plate.subset.full, aes(fill=-log(stouffFDR), y=blup), alpha=0.75) + scale_fill_viridis(option='magma', direction=-1) + geom_line(aes(y=ratio, group=sample, linetype=replicate, color=treatment)) + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="blue", shape=1 ) + scale_alpha_discrete(range=c(0,0.5)) + facet_grid(line~seqnames, scale="free_x") + theme_clear() + labs(title="PsiSeq2 Reanalysis compared to Sechellia,\n using binomial test to call individual significance\n and Stouffer's test to merge results across lines", x="Chromosome Coordinate", y="Fraction of SRR869580 SNPs Retained") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
+ggplot(pea_on_your_plate.subset.collapsed.df) + geom_density(aes(color=chrom, x=stouffFDR, y=..scaled.., linetype=treatment)) + geom_vline(xintercept=fdr_cutoff, color='blue') + labs(title="Distribution of Stouffer's Test FDR for Control and Selected Treatments, by Chromosome, with FDR Cutoff", y="Density", x="FDR" ) + geom_text(aes(x=fdr_cutoff, label=paste("FDR cutoff: ", fdr_cutoff), y=0.8), colour="blue", angle=90, text=element_text(size=11))
+
+```
+
+#### Applied to percentages
+
+The two kinds of signal (sechellia depletion and simulans retention) are merged by classifying each observed variable site as sech- or sim-like, to calculate the fraction which are similar to one parent or another. The binomial test/Stouffer's test is then applied. Results are qualitatively similar. 
+
+
+```{r echo=FALSE}
+
+#import_percentage <- function(filename, samp, line, rep, treat)
+tenA_recall_masked_percent <- import_percentage("analysis_out/10A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_10A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "10A", "10", "A", "selection")
+tenB_recall_masked_percent <- import_percentage("analysis_out/10B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_10B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "10B", "10", "B", "selection")
+thirteenA_recall_masked_percent <- import_percentage("analysis_out/13A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_13A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "13A", "13", "A", "selection")
+thirteenB_recall_masked_percent <- import_percentage("analysis_out/13B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_13B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "13B", "13", "B", "selection")
+seventeenA_recall_masked_percent <- import_percentage("analysis_out/17A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_17A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "17A", "17", "A", "selection")
+seventeenB_recall_masked_percent <- import_percentage("analysis_out/17B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_17B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "17B", "17", "B", "selection")
+SRR303_recall_masked_percent <- import_percentage("analysis_out/SRR303333.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR303333.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR303333", "SRR303333", "0", "selection")
+SRR570_recall_masked_percent <- import_percentage("analysis_out/SRR5860570.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR5860570.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR5860570", "SRR5860570", "0", "control")
+SRR6002_recall_masked_percent <- import_percentage("analysis_out/SRR6426002.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR6426002.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR6426002", "SRR6426002", "0", "control")
+```
+
+```{r echo=FALSE}
+significate_all_chromosomes.percent <- function(granges_in) {
+
+  granges_in$rawP <- as.numeric(1)
+  granges_in$fdr <- as.numeric(1)
+
+  blank_granges <- granges_in[ 1==2]
+
+  
+  for (seq in granges_in@seqnames@values ) {
+  
+    #print(seq)  
+
+    
+    tmp_granges <- granges_in[granges_in@seqnames == seq ]
+    tmp_granges$rawP <- binomial_significator(tmp_granges$total, tmp_granges$count, "greater")
+#    tmp_granges$fdr <- p.adjust(tmp_granges$rawP, method ="BH")
+    blank_granges <- c(blank_granges, tmp_granges)
+    
+    }
+  blank_granges <- subset_to_standard(blank_granges)
+  blank_granges$fdr <- p.adjust(blank_granges$rawP, method ="BH")
+  return(blank_granges)
+}
+
+```
+
+```{r echo=FALSE}
+tenA_recall_masked_percent <- significate_all_chromosomes.percent(tenA_recall_masked_percent)
+tenB_recall_masked_percent <- significate_all_chromosomes.percent(tenB_recall_masked_percent)
+thirteenA_recall_masked_percent <- significate_all_chromosomes.percent(thirteenA_recall_masked_percent)
+thirteenB_recall_masked_percent <- significate_all_chromosomes.percent(thirteenB_recall_masked_percent)
+seventeenA_recall_masked_percent <- significate_all_chromosomes.percent(seventeenA_recall_masked_percent)
+seventeenB_recall_masked_percent <- significate_all_chromosomes.percent(seventeenB_recall_masked_percent)
+SRR303_recall_masked_percent <- significate_all_chromosomes.percent(SRR303_recall_masked_percent)
+SRR570_recall_masked_percent <- significate_all_chromosomes.percent(SRR570_recall_masked_percent)
+SRR6002_recall_masked_percent <- significate_all_chromosomes.percent(SRR6002_recall_masked_percent)
+
+
+all_masked_recall_percent.subset <- c(tenA_recall_masked_percent,tenB_recall_masked_percent,thirteenA_recall_masked_percent,thirteenB_recall_masked_percent,seventeenA_recall_masked_percent,seventeenB_recall_masked_percent,SRR303_recall_masked_percent,SRR570_recall_masked_percent,SRR6002_recall_masked_percent)
+
+all_masked_recall_percent.chr2L <- all_masked_recall_percent.subset[all_masked_recall_percent.subset@seqnames == "chr2L"]
+
+```
+
+```{r echo=FALSE}
+
+autoplot(all_masked_recall_percent.subset, aes(y=percent, group=sample, linetype=replicate, color=treatment), geom='line') + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="red" ) + scale_alpha_discrete(range=c(0,1)) + facet_grid(line~seqnames, scale="free_x")
+
+```
+
+```{r echo=FALSE}
+
+#home_on_the_grange_selection<- GRangesList(masked_10A_recall,masked_10B_recall, masked_13A_recall, masked_13B_recall, masked_17A_recall, masked_17B_recall, masked_SRR303_recall)
+home_on_the_grange_selection.percent<- GRangesList(tenA_recall_masked_percent,tenB_recall_masked_percent,seventeenA_recall_masked_percent,seventeenB_recall_masked_percent,SRR303_recall_masked_percent)
+
+pea_on_your_plate.percent.select.subset <- stoufferator(home_on_the_grange_selection.percent)
+
+
+pea_on_your_plate.percent.select.subset$percent <- as.numeric(1)
+
+pea_on_your_plate.percent.select.chr2L <- pea_on_your_plate.percent.select.subset[pea_on_your_plate.percent.select.subset@seqnames=='chr2L']
+#pea_on_your_plate.percent.select.subset <- pea_on_your_plate.percent.select[pea_on_your_plate.percent.select@seqnames %in%  c('chr2L', 'chr2R', 'chr3L', 'chr3R', 'chr4', 'chrX', 'chrY') ]
+
+pea_on_your_plate.percent.select.subset$line <- as.factor("10") 
+pea_on_your_plate.percent.select.subset.full <- pea_on_your_plate.percent.select.subset
+pea_on_your_plate.percent.select.subset$line <- as.factor("13") 
+pea_on_your_plate.percent.select.subset.full <- c(pea_on_your_plate.percent.select.subset.full, pea_on_your_plate.percent.select.subset)
+pea_on_your_plate.percent.select.subset$line <- as.factor("17") 
+pea_on_your_plate.percent.select.subset.full <- c(pea_on_your_plate.percent.select.subset.full, pea_on_your_plate.percent.select.subset)
+pea_on_your_plate.percent.select.subset$line <- as.factor("SRR303333") 
+pea_on_your_plate.percent.select.subset.full <- c(pea_on_your_plate.percent.select.subset.full, pea_on_your_plate.percent.select.subset)
+pea_on_your_plate.percent.select.subset@elementMetadata <- pea_on_your_plate.percent.select.subset@elementMetadata[ , !(names(pea_on_your_plate.percent.select.subset@elementMetadata) %in% c("line"))]
+
+
+
+
+
+home_on_the_grange_control.percent<- GRangesList(SRR570_recall_masked_percent,SRR6002_recall_masked_percent)
+
+pea_on_your_plate.percent.control.subset <- stoufferator(home_on_the_grange_control.percent)
+
+pea_on_your_plate.percent.control.subset$percent <- as.numeric(1)
+
+pea_on_your_plate.percent.control.chr2L <- pea_on_your_plate.percent.control.subset[pea_on_your_plate.percent.control.subset@seqnames=='chr2L']
+
+
+
+
+pea_on_your_plate.percent.control.subset$line <- as.factor("SRR6426002") 
+pea_on_your_plate.percent.control.subset.full <- pea_on_your_plate.percent.control.subset
+pea_on_your_plate.percent.control.subset$line <- as.factor("SRR5860570") 
+pea_on_your_plate.percent.control.subset.full <- c(pea_on_your_plate.percent.control.subset.full, pea_on_your_plate.percent.control.subset)
+pea_on_your_plate.percent.control.subset@elementMetadata <- pea_on_your_plate.percent.control.subset@elementMetadata[ , !(names(pea_on_your_plate.percent.control.subset@elementMetadata) %in% c("line"))]
+
+
+pea_on_your_plate.percent.subset.full <- c(pea_on_your_plate.percent.control.subset.full, pea_on_your_plate.percent.select.subset.full)
+
+
+pea_on_your_plate.percent.chr2L.full <- pea_on_your_plate.percent.subset.full[pea_on_your_plate.percent.subset.full@seqnames=='chr2L']
+
+pea_on_your_plate.percent.control.subset$treatment <- as.factor("control")
+pea_on_your_plate.percent.select.subset$treatment <- as.factor("selection")
+
+pea_on_your_plate.percent.subset.collapsed <- c(pea_on_your_plate.percent.select.subset,pea_on_your_plate.percent.control.subset)
+pea_on_your_plate.percent.subset.collapsed.df <- pea_on_your_plate.percent.subset.collapsed@elementMetadata
+pea_on_your_plate.percent.subset.collapsed.df$chrom <- as.factor(pea_on_your_plate.percent.subset.collapsed@seqnames)
+pea_on_your_plate.percent.subset.collapsed.df <- as.data.frame(pea_on_your_plate.percent.subset.collapsed.df)
+
+pea_on_your_plate.percent.control.subset@elementMetadata <- pea_on_your_plate.percent.control.subset@elementMetadata[ , !(names(pea_on_your_plate.percent.control.subset@elementMetadata) %in% c("treatment"))]
+pea_on_your_plate.percent.select.subset@elementMetadata <- pea_on_your_plate.percent.select.subset@elementMetadata[ , !(names(pea_on_your_plate.percent.select.subset@elementMetadata) %in% c("treatment"))]
+
+
+
+```
+
+```{r echo=FALSE}
+
+autoplot(all_masked_recall_percent.chr2L, aes(y=percent, group=sample, linetype=treatment), geom='line', alpha=0) +geom_bar(data=pea_on_your_plate.percent.chr2L.full , aes(fill=-log(stouffFDR), y=percent), alpha=0.75) + scale_fill_viridis(option='magma', direction=-1) + geom_line(aes(y=percent, group=sample, linetype=treatment)) + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff)), color="blue", shape=1 ) + scale_alpha_discrete(range=c(0,1)) + facet_grid(line~seqnames, scale="free_x") + theme_clear()+ labs(title="PsiSeq2 Reanalysis,\n using binomial test to call individual significance on Percentages\n and Stouffer's test to merge results across lines", x="Chromosome Coordinate", y="Percent Simulans") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+#autoplot(all_masked_recall_percent.subset, aes(y=percent, group=sample, linetype=replicate, color=treatment), geom='line', alpha=0) + geom_bar(data=pea_on_your_plate.percent.subset.full, aes(fill=-log(stouffFDR), y=percent), alpha=0.75) + scale_fill_viridis(option='magma', direction=-1) + geom_line(aes(y=percent, group=sample, linetype=replicate, color=treatment)) + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="red" ) + scale_alpha_discrete(range=c(0,1)) + facet_grid(line~seqnames, scale="free_x") + theme_clear()
+
+
+autoplot(all_masked_recall_percent.subset, aes(y=percent, group=sample, linetype=replicate, color=treatment), geom='line', alpha=0) + geom_bar(data=pea_on_your_plate.percent.subset.full, aes(fill=-log(stouffFDR), y=percent, alpha=as.factor(stouffFDR < fdr_cutoff))) + scale_alpha_discrete(range=c(0,0.75)) + scale_fill_viridis(option='magma', direction=-1) + geom_line(aes(y=percent, group=sample, linetype=replicate, color=treatment)) + geom_point( aes( alpha=as.factor(fdr < fdr_cutoff )), color="blue", shape=1 ) + scale_alpha_discrete(range=c(0,0.5)) + facet_grid(line~seqnames, scale="free_x") + theme_clear() + labs(title="PsiSeq2 Reanalysis,\n using binomial test to call individual significance on Percentages\n and Stouffer's test to merge results across lines", x="Chromosome Coordinate", y="Percent Simulans") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
+ggplot(pea_on_your_plate.subset.collapsed.df) + geom_density(aes(color=chrom, x=stouffFDR, y=..scaled.., linetype=treatment)) + geom_vline(xintercept=fdr_cutoff, color='blue') + labs(title="Distribution of Stouffer's Test FDR for Control and Selected Treatments, by Chromosome, with FDR Cutoff", y="Density", x="FDR" ) + geom_text(aes(x=fdr_cutoff, label=paste("FDR cutoff: ", fdr_cutoff), y=0.8), colour="blue", angle=90, text=element_text(size=11))
+
+```
+
+
+
+#### Technical replicate merging
+
+The 10 and 17 (and 13) lines consist of two technical replicates which have thusfar been treated as independent. Two alternative treatments are explored: In the first the two replicates are merged by averaging and significance assigned to the averaged data; in the second the p-values are called individually and Stouffer's test is applied heirarchically, first merging the technical replicates into a single line and then merging the lines. Percentage data will be used. 
+
+```{r echo=FALSE}
+
+#import_percentage <- function(filename, samp, line, rep, treat)
+tenA_recall_masked_percent <- import_percentage("analysis_out/10A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_10A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "10A", "10", "A", "selection")
+tenB_recall_masked_percent <- import_percentage("analysis_out/10B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_10B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "10B", "10", "B", "selection")
+thirteenA_recall_masked_percent <- import_percentage("analysis_out/13A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_13A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "13A", "13", "A", "selection")
+thirteenB_recall_masked_percent <- import_percentage("analysis_out/13B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_13B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "13B", "13", "B", "selection")
+seventeenA_recall_masked_percent <- import_percentage("analysis_out/17A.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_17A.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "17A", "17", "A", "selection")
+seventeenB_recall_masked_percent <- import_percentage("analysis_out/17B.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_17B.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "17B", "17", "B", "selection")
+SRR303_recall_masked_percent <- import_percentage("analysis_out/SRR303333.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR303333.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR303333", "SRR303333", "0", "selection")
+SRR570_recall_masked_percent <- import_percentage("analysis_out/SRR5860570.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR5860570.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR5860570", "SRR5860570", "0", "control")
+SRR6002_recall_masked_percent <- import_percentage("analysis_out/SRR6426002.bwaUniq.joint.sharedWith.SRR869587.bwaUniq.joint_and_SRR6426002.bwaUniq.joint.sharedWith.SRR869580.bwaUniq.joint.lift2dm6.percent_droSim1_vs_droSec1.vcfNaive.dm6_w100000_s100000.windowCounts.maskedBy.dm6_w100000_s100000.densityThresh0.3.bed", "SRR6426002", "SRR6426002", "0", "control")
+```
+
+##### flat average
+
+Because the binomial test is applied to integer SNP counts, it isn't appropriate for an average count, which may not be an integer. An approximate proportion test is used instead.
+
+```{r echo=FALSE}
+
+average_percent <- function(granges.list){
+  #like the stoufferator, assumes the granges are consistent
+  mega_grange <- granges.list[[1]]
+  mega_grange@elementMetadata <- mega_grange@elementMetadata[c("line","treatment","total")]
+  
+  temp_mat <- c()
+
+  for (inducks in seq(1, length(granges.list))) {
+    grunge <- granges.list[[inducks]]
+    temp_mat <- cbind(temp_mat, grunge$count)
+  }
+  
+  mega_grange$count <- apply(temp_mat, 1, mean)
+  mega_grange$percent <- mega_grange$count/mega_grange$total
+  return(mega_grange)
+}
+
+ten_recall_masked_percent.avg <- average_percent(GRangesList(tenA_recall_masked_percent  ,tenB_recall_masked_percent))
+thirteen_recall_masked_percent.avg <- average_percent(GRangesList(thirteenA_recall_masked_percent,thirteenB_recall_masked_percent))
+seventeen_recall_masked_percent.avg <- average_percent(GRangesList(seventeenA_recall_masked_percent,seventeenB_recall_masked_percent))
+SRR303_recall_masked_percent.avg <- average_percent(GRangesList(SRR303_recall_masked_percent))
+SRR6002_recall_masked_percent.avg <- average_percent(GRangesList(SRR6002_recall_masked_percent))
+SRR570_recall_masked_percent.avg <- average_percent(GRangesList(SRR570_recall_masked_percent))
+
+
+
+```
+
+```{r echo=FALSE}
+
+proportion_significator <- function(potential,actual, alt){
+#  med <- median(actual/potential,na.rm=TRUE)
+  med <- mean(actual/potential,na.rm=TRUE)
+  #print(med)
+  raw_peas <- as.numeric( map2(actual, potential, function(act,pot) prop.test(x=act, n=pot, p=med, alternative=alt)$p.value))
+  #gotta adjust the DoF to reflect that the null (med) is estimated from the data
+  return(raw_peas)
+}
+
+
+significate_all_chromosomes.percent.prop <- function(granges_in) {
+
+  granges_in$rawP <- as.numeric(1)
+  granges_in$fdr <- as.numeric(1)
+  granges_in <- subset_to_standard(granges_in)
+
+  blank_granges <- granges_in[ 1==2]
+
+
+
+  for (seq in granges_in@seqnames@values ) {
+  
+    #print(seq)  
+
+    
+    tmp_granges <- granges_in[(granges_in@seqnames == seq)  & (granges_in$total > 0) ]
+    tmp_granges$rawP <- proportion_significator(tmp_granges$total, tmp_granges$count, "greater")
+#    tmp_granges$fdr <- p.adjust(tmp_granges$rawP, method ="BH")
+    blank_granges <- c(blank_granges, tmp_granges)
+    
+    }
+  blank_granges$fdr <- p.adjust(blank_granges$rawP, method ="BH")
+  return(blank_granges)
+}
+
+
+ten_recall_masked_percent.avg <- significate_all_chromosomes.percent.prop(ten_recall_masked_percent.avg)
+thirteen_recall_masked_percent.avg <- significate_all_chromosomes.percent.prop(thirteen_recall_masked_percent.avg)
+seventeen_recall_masked_percent.avg <- significate_all_chromosomes.percent.prop(seventeen_recall_masked_percent.avg)
+SRR303_recall_masked_percent.avg <- significate_all_chromosomes.percent.prop(SRR303_recall_masked_percent.avg)
+SRR570_recall_masked_percent.avg <- significate_all_chromosomes.percent.prop(SRR570_recall_masked_percent.avg)
+SRR6002_recall_masked_percent.avg <- significate_all_chromosomes.percent.prop(SRR6002_recall_masked_percent.avg)
+
+
+#all_masked_recall_percent.averaged.subset <- c(ten_recall_masked_percent.avg, thirteen_recall_masked_percent.avg,seventeen_recall_masked_percent.avg,SRR303_recall_masked_percent.avg,SRR570_recall_masked_percent.avg ,SRR6002_recall_masked_percent.avg )
+
+#all_masked_recall_percent.averaged.chr2L <- all_masked_recall_percent.averaged.subset[all_masked_recall_percent.averaged.subset@seqnames == "chr2L"]
+
+
+home_on_the_grange_selection.percent.avg<- GRangesList(ten_recall_masked_percent.avg,seventeen_recall_masked_percent.avg,SRR303_recall_masked_percent.avg)
+
+pea_on_your_plate.percent.select.subset.avg <- stoufferator(home_on_the_grange_selection.percent.avg)
+pea_on_your_plate.percent.select.chr2L.avg <- pea_on_your_plate.percent.select.subset.avg[pea_on_your_plate.percent.select.subset.avg@seqnames=='chr2L']
+
+
+
+
+home_on_the_grange_control.percent.avg<- GRangesList(SRR570_recall_masked_percent.avg,SRR6002_recall_masked_percent.avg)
+
+pea_on_your_plate.percent.control.subset.avg <- stoufferator(home_on_the_grange_control.percent.avg)
+pea_on_your_plate.percent.control.chr2L.avg <- pea_on_your_plate.percent.control.subset.avg[pea_on_your_plate.percent.control.subset.avg@seqnames=='chr2L']
+
+
+```
+
+##### heirarchical stouffer's
+
+Stouffer's test is applied to technical replicates 10A and 10B to get line-10 significance values, and to 17A and 17B to get line-17 significance values. The line-wide significance values are then combined with values from SRR303333 (no replicates) to get significance values for the "selection" treatment. The Sechellia control lines have no replicates, so this procedure reduces to the earlier one in their case. 
+
+```{r echo=FALSE}
+tenA_recall_masked_percent <- significate_all_chromosomes.percent(tenA_recall_masked_percent)
+tenB_recall_masked_percent <- significate_all_chromosomes.percent(tenB_recall_masked_percent)
+thirteenA_recall_masked_percent <- significate_all_chromosomes.percent(thirteenA_recall_masked_percent)
+thirteenB_recall_masked_percent <- significate_all_chromosomes.percent(thirteenB_recall_masked_percent)
+seventeenA_recall_masked_percent <- significate_all_chromosomes.percent(seventeenA_recall_masked_percent)
+seventeenB_recall_masked_percent <- significate_all_chromosomes.percent(seventeenB_recall_masked_percent)
+SRR303_recall_masked_percent <- significate_all_chromosomes.percent(SRR303_recall_masked_percent)
+SRR570_recall_masked_percent <- significate_all_chromosomes.percent(SRR570_recall_masked_percent)
+SRR6002_recall_masked_percent <- significate_all_chromosomes.percent(SRR6002_recall_masked_percent)
+```
+```{r echo=FALSE}
+ten_recall_masked_percent.heir <- stoufferator(GRangesList(tenA_recall_masked_percent,tenB_recall_masked_percent))
+seventeen_recall_masked_percent.heir <- stoufferator(GRangesList(seventeenA_recall_masked_percent,seventeenB_recall_masked_percent))
+names(ten_recall_masked_percent.heir@elementMetadata) <- c("rawP", "NA")
+names(seventeen_recall_masked_percent.heir@elementMetadata) <- c("rawP", "NA")
+
+home_on_the_grange_selection.heirStouff.percent<- GRangesList(ten_recall_masked_percent.heir[,c("rawP")],seventeen_recall_masked_percent.heir[,c("rawP")],SRR303_recall_masked_percent[,c("rawP")])
+
+
+pea_on_your_plate.heirArch.percent.select.subset <- stoufferator(home_on_the_grange_selection.heirStouff.percent)
+
+```
+
+##### Comparison 
+```{r echo=FALSE}
+
+select.indBin.FDR <- pea_on_your_plate.percent.select.subset[,c("stouffFDR")]
+select.indBin.FDR$sigTest <- as.factor("independent") 
+select.avgProp.FDR <- pea_on_your_plate.percent.select.subset.avg[,c("stouffFDR")]
+select.avgProp.FDR$sigTest <- as.factor("avg + prop") 
+select.heirarch.FDR <- pea_on_your_plate.heirArch.percent.select.subset[,c("stouffFDR")]
+select.heirarch.FDR$sigTest <- as.factor("heirarchical") 
+
+selection_significance.byStrategy <- c(select.indBin.FDR, select.avgProp.FDR, select.heirarch.FDR)
+selection_significance.byStrategy$treatment <- as.factor("selection")
+
+control.indBin.FDR <- pea_on_your_plate.percent.control.subset[,c("stouffFDR")]
+control.indBin.FDR$sigTest <- as.factor("Independent") 
+control.avgProp.FDR <- pea_on_your_plate.percent.control.subset.avg[,c("stouffFDR")]
+control.avgProp.FDR$sigTest <- as.factor("Averaged Proportion") 
+control.heirarch.FDR <- pea_on_your_plate.percent.control.subset[,c("stouffFDR")] # these are the same b/c none of the controls have replicates
+control.heirarch.FDR$sigTest <- as.factor("Heirarchical") 
+
+
+control_significance.byStrategy <- c(control.indBin.FDR, control.avgProp.FDR, control.heirarch.FDR)
+control_significance.byStrategy$treatment <- as.factor("control")
+
+
+all_significance.byStrategy <- c(selection_significance.byStrategy, control_significance.byStrategy)
+
+all_significance.byStrategy.chr2L <- all_significance.byStrategy[all_significance.byStrategy@seqnames=='chr2L']
+
+
+autoplot(all_significance.byStrategy.chr2L, aes(color=sigTest, y=stouffFDR), geom='line') + geom_hline(yintercept = fdr_cutoff) + geom_text(aes(label=paste("\n\nFDR cutoff: ", fdr_cutoff), y=fdr_cutoff), color='blue', angle=0, x=5000000) + scale_y_log10() + facet_grid(treatment~.) + labs(title="False Discovery Rate for Different Replicate-Merging Strategies; Chromosome 2L Closeup", y="Chromosome Coordinate", x="FDR" ) + theme_clear() 
+```
+
+The different replicate-merging strategies give qualitatively similar results; the differences would probably only be gamechanging under specific, harsh choices of FDR cutoff
+
+
+
+
+
+
+### Runs Statistics
+
+#### Genomic Autocorrellation
+
+How independent neighboring genomic windows are will influence the null hypothesis for determining outlier runs....
+
+We'll use the percentage data for now.
+
+```{r echo=FALSE}
+
+grange2df <- function(grange) {
+  df_out <- as.data.frame(grange@elementMetadata)
+  df_out$chrom <- as.factor(grange@seqnames)
+  df_out$start <- grange@ranges@start
+  df_out$end <- grange@ranges@start + grange@ranges@width - 1
+  df_out$strand <- as.factor(grange@strand)
+  df_out$width <- grange@ranges@width
+  
+  return(df_out)
+  
+  }
+
+all_masked_recall_percent.chr2L.df <- grange2df(all_masked_recall_percent.chr2L)
+
+
+all_masked_recall_percent.chr2L.df <- all_masked_recall_percent.chr2L.df %>% group_by(sample, chrom) %>% mutate(lagged_percent = lag(percent, n = 1, default = NA), lagged_fdr = lag(fdr, n = 1, default = NA))
+
+ggplot(all_masked_recall_percent.chr2L.df) + geom_point(aes(x=percent, y=lagged_percent, color=line, shape=replicate)) + geom_smooth(aes(x=percent, y=lagged_percent, group=line), color='black', se=F, size=2, method = lm) + geom_smooth(aes(x=percent, y=lagged_percent, color=line ), se=F, method = lm)+ labs(title="Correlation Between Simulans Percentage in Successive Genomic Windows; Chromosome 2L Closeup", y="Window Percent", x="Next Window Percent" ) + theme_clear() 
+
+
+ggplot(all_masked_recall_percent.chr2L.df) + geom_point(aes(x=log10(fdr), y=log10(lagged_fdr), color=line, shape=replicate)) + geom_smooth(aes(x=log10(fdr), y=log10(lagged_fdr), group=line), color='black', se=F, size=2, method = lm) + geom_smooth(aes(x=log10(fdr), y=log10(lagged_fdr), color=line ), se=F, method = lm) + coord_cartesian(xlim=c(-20, 0), ylim = c(-20,0)) + labs(title="Correlation Between Test Significance (log FDR) in Successive Genomic Windows; Chromosome 2L Closeup", y="Window FDR (log)", x="Next Window FDR (log)" ) + theme_clear() 
+
+
+all_masked_recall_percent.subset.df <- grange2df(all_masked_recall_percent.subset)
+
+
+all_masked_recall_percent.subset.df<- all_masked_recall_percent.subset.df %>% group_by(sample, chrom) %>% mutate(lagged_percent = lag(percent, n = 1, default = NA), lagged_fdr = lag(fdr, n = 1, default = NA))
+
+
+ggplot(all_masked_recall_percent.subset.df) + geom_point(aes(x=percent, y=lagged_percent, color=line, shape=replicate)) + geom_smooth(aes(x=percent, y=lagged_percent, group=sample), color='black', se=F, size=2, method = lm) + geom_smooth(aes(x=percent, y=lagged_percent, color=line, group=sample, linetype=replicate ), se=F, method = lm)+ labs(title="Correlation Between Simulans Percentage in Successive Genomic Windows; Full Genome", y="Window Percent", x="Next Window Percent" ) + facet_grid(line~chrom) + theme_clear() 
+
+
+ggplot(all_masked_recall_percent.subset.df) + geom_point(aes(x=log10(fdr), y=log10(lagged_fdr), color=line, shape=replicate)) + geom_smooth(aes(x=log10(fdr), y=log10(lagged_fdr), group=sample), color='black', se=F, size=2, method = lm) + geom_smooth(aes(x=log10(fdr), y=log10(lagged_fdr), color=line, group=sample, linetype=replicate ), se=F, method = lm)+ labs(title="Correlation Between Test Significance in Successive Genomic Windows; Full Genome", y="Window FDR (log)", x="Next Window FDR (log)"  ) + facet_grid(line~chrom) + theme_clear() 
+```
+
+
+#### Runs Length
+
+A run: a series of adjacent "successful" windows
+Success here is:
+  * greater than average percent?
+  * significance?
+
+```{r echo=FALSE}
+
+average_percent_winner <- function(granges_in, direction = 'upper') {
+  
+  blank_granges <- granges_in[ 1==2]
+  for (seq in granges_in@seqnames@values ) {
+
+    tmp_granges <- granges_in[granges_in@seqnames == seq ]
+    avg <- mean(tmp_granges$percent)
+    print(paste(seq, " : ", avg))
+
+    if (direction == 'upper') {
+      tmp_granges <- tmp_granges[tmp_granges$percent > avg]
+    } else if (direction == 'lower') {
+      tmp_granges <- tmp_granges[tmp_granges$percent < avg]
+    } else {
+      print("select direction of comparison to define success: upper or lower ")
+      tmp_granges <- tmp_granges[ 1==2]}
+    blank_granges <- c(blank_granges, tmp_granges)
+    }
+  blank_granges <- subset_to_standard(blank_granges)
+  return(blank_granges)
+}
+
+
+significance_winner <- function(granges_in, direction = 'sig') {
+  
+  blank_granges <- granges_in[ 1==2]
+  for (seq in granges_in@seqnames@values ) {
+
+    tmp_granges <- granges_in[granges_in@seqnames == seq ]
+
+    if (direction == 'sig') {
+      tmp_granges <- tmp_granges[tmp_granges$stouffFDR < fdr_cutoff]
+    } else if (direction == 'insig') {
+      tmp_granges <- tmp_granges[tmp_granges$stouffFDR > fdr_cutoff]
+    } else {
+      print("select direction of comparison to define success: sig or insig ")
+      tmp_granges <- tmp_granges[ 1==2]}
+    blank_granges <- c(blank_granges, tmp_granges)
+    }
+  blank_granges <- subset_to_standard(blank_granges)
+  return(blank_granges)
+}
+
+
+
+# errorFreeStouff <- function( pvals_in ){
+#   pvals_out <- c()
+#   for (lil_P in pvals_in){
+# 
+#     if (length(lil_P) >1 ){ 
+#       print(lil_P)
+#       zee <- sumz(lil_P, na.action = na.exclude )$p[[1]]
+#     } else if (length(lil_P) == 1) {
+#       zee <- lil_P[[1]] 
+#     } else {
+#       zee <- 1
+#     }
+# 
+#     pvals_out <- c(pvals_out, zee)
+#   }
+#   #zee = tryCatch(sumz(x)$p[[1]], error = function(e) {print(paste("warning; queasy data", x)); 1})
+#   return(pvals_out) 
+# }
+
+run_collapser <- function(granges_in, run_type){
+  #bedtools_merge(cmd="-i file.bed")
+  granges_out <-reduce(granges_in, ignore.strand = TRUE, with.revmap = TRUE)
+  mcols(granges_out) <- aggregate(granges_in, mcols(granges_out)$revmap, count=mean(count), total=mean(total), percent=mean(percent), sample = unique(sample), treatment = unique(treatment), line = unique(line), replicate = unique(replicate),drop = FALSE)
+  granges_out$run_type <- as.factor(run_type)
+  mcols(granges_out) <- subset(mcols(granges_out), select = -c(grouping))
+  return(granges_out)
+  }
+
+
+run_collapser_sig <- function(granges_in, run_type){
+  #bedtools_merge(cmd="-i file.bed")
+  granges_out <-reduce(granges_in, ignore.strand = TRUE, with.revmap = TRUE)
+  #mcols(granges_out) <- aggregate(granges_in, mcols(granges_out)$revmap, stouffP = errorFreeStouff(stouffP),drop = FALSE)
+  granges_out$run_type <- as.factor(run_type)
+  mcols(granges_out) <- subset(mcols(granges_out), select = -c(revmap))
+  return(granges_out)
+  }
+
+```
+
+
+```{r echo=FALSE}
+tenA_recall_masked_percent.avgPercent.win <- average_percent_winner(tenA_recall_masked_percent)
+tenB_recall_masked_percent.avgPercent.win <- average_percent_winner(tenB_recall_masked_percent)
+thirteenA_recall_masked_percent.avgPercent.win <- average_percent_winner(thirteenA_recall_masked_percent)
+thirteenB_recall_masked_percent.avgPercent.win <- average_percent_winner(thirteenB_recall_masked_percent)
+seventeenA_recall_masked_percent.avgPercent.win <- average_percent_winner(seventeenA_recall_masked_percent)
+seventeenB_recall_masked_percent.avgPercent.win <- average_percent_winner(seventeenB_recall_masked_percent)
+SRR303_recall_masked_percent.avgPercent.win <- average_percent_winner(SRR303_recall_masked_percent)
+SRR570_recall_masked_percent.avgPercent.win <- average_percent_winner(SRR570_recall_masked_percent)
+SRR6002_recall_masked_percent.avgPercent.win <- average_percent_winner(SRR6002_recall_masked_percent)
+
+tenA_recall_masked_percent.avgPercent.win.merged <- run_collapser(tenA_recall_masked_percent.avgPercent.win, "win")
+tenB_recall_masked_percent.avgPercent.win.merged <- run_collapser(tenB_recall_masked_percent.avgPercent.win, "win")
+thirteenA_recall_masked_percent.avgPercent.win.merged <- run_collapser(thirteenA_recall_masked_percent.avgPercent.win, "win")
+thirteenB_recall_masked_percent.avgPercent.win.merged <- run_collapser(thirteenB_recall_masked_percent.avgPercent.win, "win")
+seventeenA_recall_masked_percent.avgPercent.win.merged <- run_collapser(seventeenA_recall_masked_percent.avgPercent.win, "win")
+seventeenB_recall_masked_percent.avgPercent.win.merged <- run_collapser(seventeenB_recall_masked_percent.avgPercent.win, "win")
+SRR303_recall_masked_percent.avgPercent.win.merged <- run_collapser(SRR303_recall_masked_percent.avgPercent.win, "win")
+SRR570_recall_masked_percent.avgPercent.win.merged <- run_collapser(SRR570_recall_masked_percent.avgPercent.win, "win")
+SRR6002_recall_masked_percent.avgPercent.win.merged <- run_collapser(SRR6002_recall_masked_percent.avgPercent.win, "win")
+
+
+tenA_recall_masked_percent.avgPercent.fail <- average_percent_winner(tenA_recall_masked_percent, direction="lower")
+tenB_recall_masked_percent.avgPercent.fail <- average_percent_winner(tenB_recall_masked_percent, direction="lower")
+thirteenA_recall_masked_percent.avgPercent.fail <- average_percent_winner(thirteenA_recall_masked_percent, direction="lower")
+thirteenB_recall_masked_percent.avgPercent.fail <- average_percent_winner(thirteenB_recall_masked_percent, direction="lower")
+seventeenA_recall_masked_percent.avgPercent.fail <- average_percent_winner(seventeenA_recall_masked_percent, direction="lower")
+seventeenB_recall_masked_percent.avgPercent.fail <- average_percent_winner(seventeenB_recall_masked_percent, direction="lower")
+SRR303_recall_masked_percent.avgPercent.fail <- average_percent_winner(SRR303_recall_masked_percent, direction="lower")
+SRR570_recall_masked_percent.avgPercent.fail <- average_percent_winner(SRR570_recall_masked_percent, direction="lower")
+SRR6002_recall_masked_percent.avgPercent.fail <- average_percent_winner(SRR6002_recall_masked_percent, direction="lower")
+
+tenA_recall_masked_percent.avgPercent.fail.merged <- run_collapser(tenA_recall_masked_percent.avgPercent.fail, "fail")
+tenB_recall_masked_percent.avgPercent.fail.merged <- run_collapser(tenB_recall_masked_percent.avgPercent.fail, "fail")
+thirteenA_recall_masked_percent.avgPercent.fail.merged <- run_collapser(thirteenA_recall_masked_percent.avgPercent.fail, "fail")
+thirteenB_recall_masked_percent.avgPercent.fail.merged <- run_collapser(thirteenB_recall_masked_percent.avgPercent.fail, "fail")
+seventeenA_recall_masked_percent.avgPercent.fail.merged <- run_collapser(seventeenA_recall_masked_percent.avgPercent.fail, "fail")
+seventeenB_recall_masked_percent.avgPercent.fail.merged <- run_collapser(seventeenB_recall_masked_percent.avgPercent.fail, "fail")
+SRR303_recall_masked_percent.avgPercent.fail.merged <- run_collapser(SRR303_recall_masked_percent.avgPercent.fail, "fail")
+SRR570_recall_masked_percent.avgPercent.fail.merged <- run_collapser(SRR570_recall_masked_percent.avgPercent.fail, "fail")
+SRR6002_recall_masked_percent.avgPercent.fail.merged <- run_collapser(SRR6002_recall_masked_percent.avgPercent.fail, "fail")
+
+all_recall_masked_percent.avgPercent.runs <- c(tenA_recall_masked_percent.avgPercent.win.merged,tenB_recall_masked_percent.avgPercent.win.merged,thirteenA_recall_masked_percent.avgPercent.win.merged,thirteenB_recall_masked_percent.avgPercent.win.merged,seventeenA_recall_masked_percent.avgPercent.win.merged,seventeenB_recall_masked_percent.avgPercent.win.merged,SRR303_recall_masked_percent.avgPercent.win.merged,SRR570_recall_masked_percent.avgPercent.win.merged,SRR6002_recall_masked_percent.avgPercent.win.merged,tenA_recall_masked_percent.avgPercent.fail.merged,tenB_recall_masked_percent.avgPercent.fail.merged,thirteenA_recall_masked_percent.avgPercent.fail.merged,thirteenB_recall_masked_percent.avgPercent.fail.merged,seventeenA_recall_masked_percent.avgPercent.fail.merged,seventeenB_recall_masked_percent.avgPercent.fail.merged,SRR303_recall_masked_percent.avgPercent.fail.merged,SRR570_recall_masked_percent.avgPercent.fail.merged,SRR6002_recall_masked_percent.avgPercent.fail.merged)
+
+
+
+all_recall_masked_percent.avgPercent.runs.chr2L <- all_recall_masked_percent.avgPercent.runs[all_recall_masked_percent.avgPercent.runs@seqnames=='chr2L']
+
+all_recall_masked_percent.avgPercent.runs.df <- grange2df(all_recall_masked_percent.avgPercent.runs)
+
+all_recall_masked_percent.avgPercent.runs.df$sample <- as.factor(unlist(all_recall_masked_percent.avgPercent.runs.df$sample ))
+all_recall_masked_percent.avgPercent.runs.df$line <- as.factor(unlist(all_recall_masked_percent.avgPercent.runs.df$line ))
+all_recall_masked_percent.avgPercent.runs.df$replicate <- as.factor(unlist(all_recall_masked_percent.avgPercent.runs.df$replicate ))
+#??? WHY this necessary????????????????
+
+ggplot(all_recall_masked_percent.avgPercent.runs.df) + geom_freqpoly(aes(x=width, color=run_type), bins=12) + facet_grid(line~chrom, scale="free_x")
+
+
+```
+
+
+```{r echo=FALSE}
+
+pea_on_your_plate.heirArch.percent.select.subset.win <- significance_winner(pea_on_your_plate.heirArch.percent.select.subset)
+pea_on_your_plate.heirArch.percent.select.subset.win.merged <- run_collapser_sig(pea_on_your_plate.heirArch.percent.select.subset.win, "win")
+
+pea_on_your_plate.heirArch.percent.select.subset.fail <- significance_winner(pea_on_your_plate.heirArch.percent.select.subset, 'insig')
+pea_on_your_plate.heirArch.percent.select.subset.fail.merged <- run_collapser_sig(pea_on_your_plate.heirArch.percent.select.subset.fail, "fail")
+
+pea_on_your_plate.percent.control.subset.win <- significance_winner(pea_on_your_plate.percent.control.subset)
+pea_on_your_plate.percent.control.subset.win.merged <- run_collapser_sig(pea_on_your_plate.percent.control.subset.win, "win")
+
+pea_on_your_plate.percent.control.subset.fail <- significance_winner(pea_on_your_plate.percent.control.subset, 'insig')
+pea_on_your_plate.percent.control.subset.fail.merged <- run_collapser_sig(pea_on_your_plate.percent.control.subset.fail, "fail")
+
+pea_on_your_plate.percent.control.merged <- c(pea_on_your_plate.percent.control.subset.fail.merged, pea_on_your_plate.percent.control.subset.win.merged)
+pea_on_your_plate.percent.control.merged$treatment <- as.factor("control")
+
+pea_on_your_plate.heirArch.percent.select.merged <- c(pea_on_your_plate.heirArch.percent.select.subset.win.merged, pea_on_your_plate.heirArch.percent.select.subset.fail.merged)
+pea_on_your_plate.heirArch.percent.select.merged$treatment <- as.factor("selection")
+
+all_recall_merged_sig <- c(pea_on_your_plate.heirArch.percent.select.merged, pea_on_your_plate.percent.control.merged)
+
+all_recall_merged_sig.df <- grange2df(all_recall_merged_sig)
+
+ggplot(all_recall_merged_sig.df) + geom_freqpoly(aes(x=width, color=run_type), bins=12) + facet_grid(treatment~chrom, scale="free_x")
+
+```
+
+
+
+#### Runs Clustering
+
+That's the size of the runs; what about their clustering?
+
+
+```{r echo=FALSE}
+
+calculate_nearest_distance <- function(grange_in) {
+
+  gr_a <- grange_in
+  #gr_a@elementMetadata <- gr_a@elementMetadata[1==2]
+  #bedtools_closest(cmd = " -a siggy_windows.bed -b siggy_windows.bed -io -d")
+  upstream <- follow(gr_a, gr_a, ignore.strand = TRUE, select = "all")
+  downstream <- precede(gr_a, gr_a, ignore.strand = TRUE, select = "all")
+    #hits <- c(upstream, downstream)
+    #NO! weird sorting error
+  d_hits <- selectNearest(downstream, gr_a, gr_a)
+  u_hits <- selectNearest(upstream, gr_a, gr_a)
+  ans_d <- pair(gr_a, gr_a, d_hits, all.x = TRUE)
+  ans_u <- pair(gr_a, gr_a, u_hits, all.x = TRUE)
+
+  mcols(gr_a)$distance <- apply(matrix(c(distance(ans_d), distance(ans_u)), ncol=2, nrow = length(ans_d)), 1, min, na.rm = TRUE)
+
+  return(gr_a)
+}
+
+```
+
+```{r echo=FALSE}
+
+
+
+
+```
+
+
+### Final Call
+
+* Binomial test on chromosome-wide Simulans percentage by replicate
+  * ignore line 13
+* Heirarchical Stouffer's to call bin significance
+
+```{r echo=FALSE}
+
+final_control <- pea_on_your_plate.percent.control.subset
+mcols(final_control) <- subset(mcols(final_control), select = -c(percent))
+final_control$treatment <- as.factor("control")
+
+final_select <- pea_on_your_plate.heirArch.percent.select.subset
+final_select$treatment <- as.factor("selection")
+
+
+
+final_bin_stats <-c( final_control, final_select )
+
+final_bin_stats.df <- data.frame(seqnames = seqnames(final_bin_stats), starts=start(final_bin_stats)-1, ends = end(final_bin_stats), names=c(rep("NA", length(final_bin_stats))), scores = final_bin_stats$stouffFDR, strands = c(rep(".", length(final_bin_stats))), treatment=final_bin_stats$treatment)
+
+final_bin_stats.df$starts <- format(final_bin_stats.df$starts, scientific = FALSE)
+final_bin_stats.df$ends <- format(final_bin_stats.df$ends, scientific = FALSE)
+
+write.table(final_bin_stats.df, file="semiFinal_bin_stats.all.bed", quote=F, sep="\t", row.names=F, col.names=F)
+
+final_bin_stats.df.sig <- final_bin_stats.df %>% subset(scores < fdr_cutoff)
+
+write.table(final_bin_stats.df.sig %>% subset(treatment == "selection"), file="semiFinal_bin_stats.selection.significant.bed", quote=F, sep="\t", row.names=F, col.names=F)
+
+write.table(final_bin_stats.df.sig %>% subset(treatment == "control"), file="semiFinal_bin_stats.control.significant.bed", quote=F, sep="\t", row.names=F, col.names=F)
+
+#bedtools intersect -v -wa -wb  -a semiFinal_bin_stats.selection.significant.bed -b semiFinal_bin_stats.control.significant.bed > semiFinal_bin_stats.selectionExclusive.significant.bed
+#bedtools merge -i semiFinal_bin_stats.selectionExclusive.significant.bed > semiFinal_bin_stats.selectionExclusive.significant.merged.bed
+
+```
+
+main figure
+
+
+```{r echo=FALSE}
+
+final_select$percent <- as.numeric(1)
+
+final_select$line <- as.factor("10") 
+final_select.full <- final_select
+final_select$line <- as.factor("13") 
+final_select.full <- c(final_select.full, final_select)
+final_select$line <- as.factor("17") 
+final_select.full <- c(final_select.full, final_select)
+final_select$line <- as.factor("SRR303333") 
+final_select.full <- c(final_select.full, final_select)
+mcols(final_select) <- subset(mcols(final_select), select = -c(percent, line))
+
+
+final_control$percent <- as.numeric(1)
+
+final_control$line <- as.factor("SRR6426002") 
+final_control.full <- final_control
+final_control$line <- as.factor("SRR5860570") 
+final_control.full <- c(final_control.full, final_control)
+mcols(final_control) <- subset(mcols(final_control), select = -c(percent, line))
+
+
+finalFig.full <- c(final_control.full, final_select.full)
+
+finalFig.full$percent <- finalFig.full$percent *100
+all_masked_recall_percent.subset$percent <- 100*all_masked_recall_percent.subset$percent 
+
+```
+
+
+```{r echo=FALSE}
+
+mB_deformatter <- function(x ) {
+  lab <- round(x/1000000)
+}
+
+autoplot(all_masked_recall_percent.subset, aes(y=percent, group=sample, linetype=replicate, color=treatment), geom='line', alpha=0) + geom_bar(data=finalFig.full, aes(fill=-log(stouffFDR), y=percent, alpha=as.factor(stouffFDR < fdr_cutoff))) + scale_alpha_discrete(range=c(0,0.75)) + scale_fill_gradientn(colors = magma(n=16, direction=-1), limits=c(4.6, 80), na.value = "#FFFFFFFF") + geom_line(aes(y=percent, group=sample,linetype=replicate), color="black", size=1.2) +  geom_line(aes(y=percent, group=sample, linetype=replicate, color=treatment)) + geom_rug(sides='b', aes(alpha=as.factor(fdr<fdr_cutoff))) + scale_alpha_discrete(range=c(0,0.5)) + scale_shape_manual(values=c(3,4,4)) + facet_grid(line~seqnames, scale="free_x") + theme_clear() + labs(title="PsiSeq2 Reanalysis,\n using binomial test to call individual significance on Percentages\n and Stouffer's test to merge results across lines", x="Position (Mb)", y="Percent Simulans per 100kb Window") + theme(axis.text.x = element_text(angle = 90, hjust = 1))  + scale_y_continuous(breaks=c(50)) + scale_x_continuous(breaks = c(0, 25*10**6, 5*10**6), labels=mB_deformatter)
+#geom_point( aes( alpha=as.factor(fdr < fdr_cutoff ), shape=replicate), color="blue", y=0 )
+```
+
+
+
+
+
+# Supplemental Figures
+
+A number of tests were done to confirm that the artefact was biological rather than computational or methodological:
+
+## LiftCheck
+
+LiftOver is a lossy procedure but the variant sites which don't LiftOver are pretty consistently distributed (with some enhancement near the centromere), and mostly are sites which aren't called as variable in the offspring:
+
+
+```{r echo=FALSE}
+tenA.vsSim.tooHeavy <- import.bedGraph("analysis_out/10A_and_SynthSec_vs_droSim1.bwa.dm6.tooHeavy.droSim1_w100000_s10000.windowCounts.bed", genome="droSim1")
+names(tenA.vsSim.tooHeavy@elementMetadata) <- c('sum','count')
+#tenA.vsSim.tooHeavy$call <- as.factor(tenA.vsSim.tooHeavy$call) 
+tenA.vsSim.tooHeavy$comp <- as.factor("SIM")
+tenA.vsSim.tooHeavy$sample <- as.factor("10")
+tenA.vsSim.tooHeavy$replicate <- as.factor("A")
+tenA.vsSim.tooHeavy.chr2L <- tenA.vsSim.tooHeavy[ tenA.vsSim.tooHeavy@seqnames =='chr2L' ]
+
+tenA.vsSim.tooHeavy.count <- autoplot(tenA.vsSim.tooHeavy.chr2L, aes(y=count), color='black', geom='line')
+tenA.vsSim.tooHeavy.sharedCount <- autoplot(tenA.vsSim.tooHeavy.chr2L, aes(y=sum), color='black', geom='line')
+
+tenA.vsSim.tooHeavy.tks <- tracks(tenA.vsSim.tooHeavy.count, tenA.vsSim.tooHeavy.sharedCount, xlab = "Chromosome Coords", main="Distribution of Sites on droSim1 chr2L which Would Not LiftOver")
+tenA.vsSim.tooHeavy.tks
+
+png(filename = "figs/FigS1_chr2L_10A_tooHeavy.png", width = 1200, height=900)
+tenA.vsSim.tooHeavy.tks
+dev.off()
+
+```
+
+The unlifted data show the same artefact: (? use a control to illustrate this??)
+
+```{r echo=FALSE}
+
+tenA.vsSim.noLift <- import.bedGraph("analysis_out/10A_and_SynthSec_vs_droSim1.bwa.droSim1_w100000_s10000.windowCounts.bed", genome="droSim1")
+names(tenA.vsSim.noLift@elementMetadata) <- c('actual', 'potential')
+tenA.vsSim.noLift$ratio <- tenA.vsSim.noLift$actual/tenA.vsSim.noLift$potential
+tenA.vsSim.noLift$replicate <- as.factor("A") 
+tenA.vsSim.noLift$comp <-as.factor("SIM")
+tenA.vsSim.noLift$sample <-as.factor("10")
+tenA.vsSim.noLift.chr2L <- tenA.vsSim.noLift[tenA.vsSim.noLift@seqnames =='chr2L' ]
+
+tenA.vsSim.noLift.chr2L.potential <- autoplot(tenA.vsSim.noLift.chr2L, aes(y=potential), color='black', geom='line') 
+
+tenA.vsSim.noLift.chr2L.actual <- autoplot(tenA.vsSim.noLift.chr2L, aes(y=actual), color='black', geom='line') 
+
+tenA.vsSim.noLift.chr2L.ratio <- autoplot(tenA.vsSim.noLift.chr2L, aes(y=ratio), color='black', geom='line') 
+
+tenA.vsSim.noLift.chr2L.tks <- tracks(tenA.vsSim.noLift.chr2L.potential, tenA.vsSim.noLift.chr2L.actual, tenA.vsSim.noLift.chr2L.ratio, xlab = "Chromosome Coords", main="Pileup Comparisons for 10A and Synthetic droSec1 Reads Mapped to droSim1 on chr2L")
+
+tenA.vsSim.noLift.chr2L.tks
+
+png(filename = "figs/FigS2_chr2L_10A_unlifted.png", width = 1200, height=900)
+tenA.vsSim.noLift.chr2L.tks
+dev.off()
+
+```
+
+## Different mapping strategies
+
+Like [@Earley2011], these alignments have been unfiltered BWA output. This might introduce artefacts through multimapping reads or low-quality mappings. A subset of the BWA alignments was gathered by filtering on mapping quality (MAPQ, well-mapped pairs) and mapping uniqueness (no alternative or secondary mappings). To test robustness to aligner algorithm, NGM was also used. The results are qualitatively similar:
+
+```{r echo=FALSE}
+
+
+SRR5860570.vsSim.bwa <- lifted.SRR5860570.vsSim #<- import.bedGraph("analysis_out/SRR5860570_and_SynthSec_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SRR5860570.vsSim.bwaUniq <- import.bedGraph("analysis_out/SRR5860570_and_SynthSec_vs_droSim1.bwaUniq.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SRR5860570.vsSim.ngm <- import.bedGraph("analysis_out/SRR5860570_and_SynthSec_vs_droSim1.ngm.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SRR5860570.vsSec.bwa <- lifted.SRR5860570.vsSec # <- import.bedGraph("analysis_out/SRR5860570_and_SynthSim_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SRR5860570.vsSec.bwaUniq<- import.bedGraph("analysis_out/SRR5860570_and_SynthSim_vs_droSec1.bwaUniq.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+SRR5860570.vsSec.ngm<- import.bedGraph("analysis_out/SRR5860570_and_SynthSim_vs_droSec1.ngm.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+#names(SRR5860570.vsSim.bwa@elementMetadata) <-  
+names(SRR5860570.vsSim.bwaUniq@elementMetadata) <- c('actual', 'potential')
+names(SRR5860570.vsSim.ngm@elementMetadata) <- c('actual', 'potential')
+#names(SRR5860570.vsSec.bwa@elementMetadata) <- c('actual', 'potential')
+names(SRR5860570.vsSec.bwaUniq@elementMetadata) <- c('actual', 'potential')
+names(SRR5860570.vsSec.ngm@elementMetadata) <- c('actual', 'potential')
+
+
+SRR5860570.vsSim.bwaUniq$ratio <- SRR5860570.vsSim.bwaUniq$actual/SRR5860570.vsSim.bwaUniq$potential
+SRR5860570.vsSim.ngm$ratio <- SRR5860570.vsSim.ngm$actual/SRR5860570.vsSim.ngm$potential
+SRR5860570.vsSec.bwaUniq$ratio <- SRR5860570.vsSec.bwaUniq$actual/SRR5860570.vsSec.bwaUniq$potential
+SRR5860570.vsSec.ngm$ratio <- SRR5860570.vsSec.ngm$actual/SRR5860570.vsSec.ngm$potential
+
+
+SRR5860570.vsSim.bwa$replicate <- as.factor(0)
+SRR5860570.vsSim.bwaUniq$replicate <- as.factor(0)
+SRR5860570.vsSim.ngm$replicate <- as.factor(0)
+SRR5860570.vsSec.bwa$replicate <- as.factor(0)
+SRR5860570.vsSec.bwaUniq$replicate <- as.factor(0)
+SRR5860570.vsSec.ngm$replicate <- as.factor(0)
+
+#SRR5860570.vsSim.bwa$comp <- as.factor('SIM')
+SRR5860570.vsSim.bwaUniq$comp <- as.factor('SIM')
+SRR5860570.vsSim.ngm$comp <- as.factor('SIM')
+#SRR5860570.vsSec.bwa$comp <- as.factor('SEC')
+SRR5860570.vsSec.bwaUniq$comp <- as.factor('SEC')
+SRR5860570.vsSec.ngm$comp <- as.factor('SEC')
+
+#SRR5860570.vsSim.bwa$sample <- as.factor('SRR5860570')
+SRR5860570.vsSim.bwaUniq$sample <- as.factor('SRR5860570')
+SRR5860570.vsSim.ngm$sample <- as.factor('SRR5860570')
+#SRR5860570.vsSec.bwa$sample <- as.factor('SRR5860570')
+SRR5860570.vsSec.bwaUniq$sample <- as.factor('SRR5860570')
+SRR5860570.vsSec.ngm$sample <- as.factor('SRR5860570')
+
+SRR5860570.vsSim.bwa$parental <- as.factor('SynthSec')
+SRR5860570.vsSim.bwaUniq$parental <- as.factor('SynthSec')
+SRR5860570.vsSim.ngm$parental <- as.factor('SynthSec')
+SRR5860570.vsSec.bwa$parental <- as.factor('SynthSec')
+SRR5860570.vsSec.bwaUniq$parental <- as.factor('SynthSec')
+SRR5860570.vsSec.ngm$parental <- as.factor('SynthSec')
+
+SRR5860570.vsSim.bwa$mapper <- as.factor('BWA')
+SRR5860570.vsSim.bwaUniq$mapper <- as.factor('BWA-Uniq')
+SRR5860570.vsSim.ngm$mapper <- as.factor('NGM')
+SRR5860570.vsSec.bwa$mapper <- as.factor('BWA')
+SRR5860570.vsSec.bwaUniq$mapper <- as.factor('BWA-Uniq')
+SRR5860570.vsSec.ngm$mapper <- as.factor('NGM')
+
+
+SRR5860570.vsSim.bwa@elementMetadata <- SRR5860570.vsSim.bwa@elementMetadata[,c("actual","potential","ratio","replicate","comp","sample","parental","mapper")]
+SRR5860570.vsSec.bwa@elementMetadata <- SRR5860570.vsSec.bwa@elementMetadata[,c("actual","potential","ratio","replicate","comp","sample","parental","mapper")]
+
+
+all_mappers <- c(SRR5860570.vsSec.bwa,SRR5860570.vsSec.bwaUniq,SRR5860570.vsSec.ngm,SRR5860570.vsSim.bwa,SRR5860570.vsSim.bwaUniq,SRR5860570.vsSim.ngm)
+
+
+all_mappers.chr2L <- all_mappers[all_mappers@seqnames =='chr2L' ]
+
+```
+```{r echo=FALSE}
+
+#autoplot(all_mappers.chr2L, aes(y=ratio, color=mapper), geom='line') + facet_grid(comp~., scale="free")  
+all_mappers.chr2L.plt <- autoplot(all_mappers.chr2L, aes(y=ratio, color=mapper), geom='line') + facet_grid(comp~., scale='free') + ggtitle("Comparison of Mapping Strategies ")
+
+all_mappers.chr2L.plt
+png(filename = "figs/FigS3_chr2L_mapperComparison.png", width = 1200, height=900)
+all_mappers.chr2L.plt
+dev.off()
+```
+
+
+
+## Different F0 Lines
+
+The F0 sechellia and simulans flies were not sequenced; synthetic reads made by fragmenting a reference genome (this was done with a custom Perl script in [@Earley2011] and using the ART read simulator here [cite]). ~Rich's SucSec and~ several NCBI lines were used as empirical samples of sechellia genomes. The signal is weaker in these cases (possibly due to depth-of-coverage effects), but these samples recreate the artefact:
+```{r echo=FALSE}
+
+lifted.10A_and_SRR869587.vsSim  <- import.bedGraph("analysis_out/10A_and_SRR869587_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.10A_and_SRR6426002.vsSim  <- import.bedGraph("analysis_out/10A_and_SRR6426002_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.10A_and_SRR5860570.vsSim  <- import.bedGraph("analysis_out/10A_and_SRR5860570_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR5860570_and_SRR869587.vsSim  <- import.bedGraph("analysis_out/SRR5860570_and_SRR869587_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR5860570_and_SRR6426002.vsSim  <- import.bedGraph("analysis_out/SRR5860570_and_SRR6426002_vs_droSim1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+names(lifted.10A_and_SRR869587.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.10A_and_SRR6426002.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.10A_and_SRR5860570.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR5860570_and_SRR869587.vsSim@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR5860570_and_SRR6426002.vsSim@elementMetadata) <- c('actual', 'potential')
+lifted.10A_and_SRR869587.vsSim$ratio <-lifted.10A_and_SRR869587.vsSim$actual/lifted.10A_and_SRR869587.vsSim$potential
+lifted.10A_and_SRR6426002.vsSim$ratio <-lifted.10A_and_SRR6426002.vsSim$actual/lifted.10A_and_SRR6426002.vsSim$potential
+lifted.10A_and_SRR5860570.vsSim$ratio <-lifted.10A_and_SRR5860570.vsSim$actual/lifted.10A_and_SRR5860570.vsSim$potential
+lifted.SRR5860570_and_SRR869587.vsSim$ratio <-lifted.SRR5860570_and_SRR869587.vsSim$actual/lifted.SRR5860570_and_SRR869587.vsSim$potential
+lifted.SRR5860570_and_SRR6426002.vsSim$ratio <-lifted.SRR5860570_and_SRR6426002.vsSim$actual/lifted.SRR5860570_and_SRR6426002.vsSim$potential
+lifted.10A_and_SRR869587.vsSim$replicate <- as.factor(0)
+lifted.10A_and_SRR6426002.vsSim$replicate <- as.factor(0)
+lifted.10A_and_SRR5860570.vsSim$replicate <- as.factor(0)
+lifted.SRR5860570_and_SRR869587.vsSim$replicate <- as.factor(0)
+lifted.SRR5860570_and_SRR6426002.vsSim$replicate <- as.factor(0)
+lifted.10A_and_SRR869587.vsSim$comp <- as.factor('SIM')
+lifted.10A_and_SRR6426002.vsSim$comp <- as.factor('SIM')
+lifted.10A_and_SRR5860570.vsSim$comp <- as.factor('SIM')
+lifted.SRR5860570_and_SRR869587.vsSim$comp <- as.factor('SIM')
+lifted.SRR5860570_and_SRR6426002.vsSim$comp <- as.factor('SIM')
+lifted.10A_and_SRR869587.vsSim$sample <- as.factor('10A')
+lifted.10A_and_SRR6426002.vsSim$sample <- as.factor('10A')
+lifted.10A_and_SRR5860570.vsSim$sample <- as.factor('10A')
+lifted.SRR5860570_and_SRR869587.vsSim$sample <- as.factor('SRR5860570')
+lifted.SRR5860570_and_SRR6426002.vsSim$sample <- as.factor('SRR5860570')
+lifted.10A_and_SRR869587.vsSim$parental <- as.factor('SRR869587')
+lifted.10A_and_SRR6426002.vsSim$parental <- as.factor('SRR6426002')
+lifted.10A_and_SRR5860570.vsSim$parental <- as.factor('SRR5860570')
+lifted.SRR5860570_and_SRR869587.vsSim$parental <- as.factor('SRR869587')
+lifted.SRR5860570_and_SRR6426002.vsSim$parental <- as.factor('SRR6426002')
+
+lifted.10A_and_synthSec.vsSim <- lifted.10A.vsSim
+lifted.10A_and_synthSec.vsSim$parental <- as.factor("SynthSec")
+lifted.SRR5860570_and_synthSec.vsSim <- lifted.SRR5860570.vsSim
+lifted.SRR5860570_and_synthSec.vsSim$parental <- as.factor("SynthSec")
+
+lifted.SRR5860570_and_synthSec.vsSim$replicate <- as.factor(0)
+lifted.SRR5860570_and_synthSec.vsSim@elementMetadata <- lifted.SRR5860570_and_synthSec.vsSim@elementMetadata[,c("actual","potential","ratio","replicate","comp","sample","parental" )]
+
+
+
+lifted.10A_and_SRR869587.vsSec  <- import.bedGraph("analysis_out/10A_and_SRR869587_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.10A_and_SRR6426002.vsSec  <- import.bedGraph("analysis_out/10A_and_SRR6426002_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.10A_and_SRR5860570.vsSec  <- import.bedGraph("analysis_out/10A_and_SRR5860570_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR5860570_and_SRR869587.vsSec  <- import.bedGraph("analysis_out/SRR5860570_and_SRR869587_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+lifted.SRR5860570_and_SRR6426002.vsSec  <- import.bedGraph("analysis_out/SRR5860570_and_SRR6426002_vs_droSec1.bwa.lift2dm6.dm6_w100000_s10000.windowCounts.bed", genome="dm6")
+names(lifted.10A_and_SRR869587.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.10A_and_SRR6426002.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.10A_and_SRR5860570.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR5860570_and_SRR869587.vsSec@elementMetadata) <- c('actual', 'potential')
+names(lifted.SRR5860570_and_SRR6426002.vsSec@elementMetadata) <- c('actual', 'potential')
+lifted.10A_and_SRR869587.vsSec$ratio <-lifted.10A_and_SRR869587.vsSec$actual/lifted.10A_and_SRR869587.vsSec$potential
+lifted.10A_and_SRR6426002.vsSec$ratio <-lifted.10A_and_SRR6426002.vsSec$actual/lifted.10A_and_SRR6426002.vsSec$potential
+lifted.10A_and_SRR5860570.vsSec$ratio <-lifted.10A_and_SRR5860570.vsSec$actual/lifted.10A_and_SRR5860570.vsSec$potential
+lifted.SRR5860570_and_SRR869587.vsSec$ratio <-lifted.SRR5860570_and_SRR869587.vsSec$actual/lifted.SRR5860570_and_SRR869587.vsSec$potential
+lifted.SRR5860570_and_SRR6426002.vsSec$ratio <-lifted.SRR5860570_and_SRR6426002.vsSec$actual/lifted.SRR5860570_and_SRR6426002.vsSec$potential
+lifted.10A_and_SRR869587.vsSec$replicate <- as.factor(0)
+lifted.10A_and_SRR6426002.vsSec$replicate <- as.factor(0)
+lifted.10A_and_SRR5860570.vsSec$replicate <- as.factor(0)
+lifted.SRR5860570_and_SRR869587.vsSec$replicate <- as.factor(0)
+lifted.SRR5860570_and_SRR6426002.vsSec$replicate <- as.factor(0)
+lifted.10A_and_SRR869587.vsSec$comp <- as.factor('SEC')
+lifted.10A_and_SRR6426002.vsSec$comp <- as.factor('SEC')
+lifted.10A_and_SRR5860570.vsSec$comp <- as.factor('SEC')
+lifted.SRR5860570_and_SRR869587.vsSec$comp <- as.factor('SEC')
+lifted.SRR5860570_and_SRR6426002.vsSec$comp <- as.factor('SEC')
+lifted.10A_and_SRR869587.vsSec$sample <- as.factor('10A')
+lifted.10A_and_SRR6426002.vsSec$sample <- as.factor('10A')
+lifted.10A_and_SRR5860570.vsSec$sample <- as.factor('10A')
+lifted.SRR5860570_and_SRR869587.vsSec$sample <- as.factor('SRR5860570')
+lifted.SRR5860570_and_SRR6426002.vsSec$sample <- as.factor('SRR5860570')
+lifted.10A_and_SRR869587.vsSec$parental <- as.factor('SRR869587')
+lifted.10A_and_SRR6426002.vsSec$parental <- as.factor('SRR6426002')
+lifted.10A_and_SRR5860570.vsSec$parental <- as.factor('SRR5860570')
+lifted.SRR5860570_and_SRR869587.vsSec$parental <- as.factor('SRR869587')
+lifted.SRR5860570_and_SRR6426002.vsSec$parental <- as.factor('SRR6426002')
+
+lifted.10A_and_synthSec.vsSec <- lifted.10A.vsSec
+lifted.10A_and_synthSec.vsSec$parental <- as.factor("SynthSec")
+lifted.SRR5860570_and_synthSec.vsSec <- lifted.SRR5860570.vsSec
+lifted.SRR5860570_and_synthSec.vsSec$parental <- as.factor("SynthSec")
+
+
+
+
+
+
+lifted.10A_and_synthSec.vsSim <- lifted.10A.vsSim
+lifted.10A_and_synthSec.vsSim$parental <- as.factor("SynthSec")
+lifted.10A_and_synthSec.vsSim$replicate <-as.factor("A")
+lifted.10A_and_synthSec.vsSim$comp <-as.factor("SIM")
+lifted.10A_and_synthSec.vsSim@elementMetadata<- lifted.10A_and_synthSec.vsSim@elementMetadata[,c("actual","potential","ratio","replicate","comp","sample","parental"  )]
+
+lifted.SRR5860570_and_synthSec.vsSec <- lifted.SRR5860570.vsSec
+lifted.SRR5860570_and_synthSec.vsSec$parental <- as.factor("SynthSec")
+
+lifted.SRR5860570_and_synthSec.vsSec$replicate <- as.factor(0)
+lifted.SRR5860570_and_synthSec.vsSec@elementMetadata <- lifted.SRR5860570_and_synthSec.vsSec@elementMetadata[,c("actual","potential","ratio","replicate","comp","sample","parental" )]
+
+
+
+all_parentals <- c(lifted.10A_and_SRR5860570.vsSim,lifted.10A_and_SRR6426002.vsSim,lifted.10A_and_SRR869587.vsSim,lifted.10A_and_synthSec.vsSim, lifted.SRR5860570_and_SRR6426002.vsSim,lifted.SRR5860570_and_SRR869587.vsSim,lifted.SRR5860570_and_synthSec.vsSim,lifted.10A_and_SRR869587.vsSec,lifted.10A_and_SRR6426002.vsSec,lifted.10A_and_SRR5860570.vsSec,lifted.SRR5860570_and_SRR869587.vsSec,lifted.SRR5860570_and_SRR6426002.vsSec )
+
+all_parentals$sample<- recode(all_parentals$sample, "10"="10A")
+
+all_parentals.chr2L <- all_parentals[all_parentals@seqnames =='chr2L' ]
+
+```
+```{r echo=FALSE}
+
+all_parentals.chr2L.plt <- autoplot(all_parentals.chr2L, aes(y=ratio, color=parental, linetype=sample), geom='line') + facet_grid(parental~comp, scale="free") + ggtitle("Comparison of F0 Reads used to call 'Potential' SNPs")
+
+all_parentals.chr2L.plt
+png(filename = "figs/FigS4_chr2L_F0Comparison.png", width = 1200, height=900)
+all_parentals.chr2L.plt
+dev.off()
+```
+
+
+
+## windows vs bins
+
+Variants were counted by dividing the genome into fixed-width windows and counting, which is trivial to implement in bedtools. However, the [@Earley2011] algorithm used a sliding bins of fixed SNP count. These counting methods were compared and give qualitatively similar results:
+
+```{r echo=FALSE}
+tenA_vsSim.snpBin <- import.bedGraph("analysis_out/10A_and_SynthSec_vs_droSim1.bwa.lift2dm6.b1000s250.snpBins.bed", genome="dm6")
+SRR5860570_vsSim.snpBin <- import.bedGraph("analysis_out/SRR5860570_and_SynthSec_vs_droSim1.bwa.lift2dm6.b1000s250.snpBins.bed", genome="dm6")
+#SucSec_vsSim.snpBin <- import.bedGraph("analysis_out/SucSec_and_SynthSec_vs_droSim1.bwa.lift2dm6.b1000s250.snpBins.bed", genome="dm6")
+
+names(tenA_vsSim.snpBin@elementMetadata) <- c("ratio")
+names(SRR5860570_vsSim.snpBin@elementMetadata) <- c("ratio")
+#names(SucSec_vsSim.snpBin@elementMetadata) <- c("ratio")
+
+tenA_vsSim.snpBin$ratio <- tenA_vsSim.snpBin$ratio/1000
+SRR5860570_vsSim.snpBin$ratio <- SRR5860570_vsSim.snpBin$ratio/1000
+#SucSec_vsSim.snpBin$ratio <- SucSec_vsSim.snpBin$ratio/1000
+
+tenA_vsSim.snpBin$comp <- as.factor("SIM")
+SRR5860570_vsSim.snpBin$comp <- as.factor("SIM")
+#SucSec_vsSim.snpBin$comp <- as.factor("SIM")
+
+tenA_vsSim.snpBin$sample <- as.factor("10A")
+SRR5860570_vsSim.snpBin$sample <- as.factor("SRR5860570")
+#SucSec_vsSim.snpBin$sample <- as.factor("SucSec")
+
+tenA_vsSim.snpBin$grouping <- as.factor("snp_bin")
+SRR5860570_vsSim.snpBin$grouping <- as.factor("snp_bin")
+#SucSec_vsSim.snpBin$grouping <- as.factor("snp_bin")
+
+lifted.10A.vsSim$comp <- as.factor("SIM")
+tenA_vsSim.genWin <- lifted.10A.vsSim[,c("ratio","comp","sample")]
+#SucSec_vsSim.genWin <- lifted.SucSec.vsSim[,c("ratio","comp","sample")]
+SRR5860570_vsSim.genWin <- lifted.SRR5860570.vsSim[,c("ratio","comp","sample")]
+
+tenA_vsSim.genWin$grouping <- as.factor("genome_window")
+#SucSec_vsSim.genWin$grouping <- as.factor("genome_window")
+SRR5860570_vsSim.genWin$grouping <- as.factor("genome_window")
+
+
+
+
+tenA_vsSec.snpBin <- import.bedGraph("analysis_out/10A_and_SynthSim_vs_droSec1.bwa.lift2dm6.b1000s250.snpBins.bed", genome="dm6")
+SRR5860570_vsSec.snpBin <- import.bedGraph("analysis_out/SRR5860570_and_SynthSim_vs_droSec1.bwa.lift2dm6.b1000s250.snpBins.bed", genome="dm6")
+#SucSec_vsSec.snpBin <- import.bedGraph("analysis_out/SucSec_and_SynthSim_vs_droSec1.bwa.lift2dm6.b1000s250.snpBins.bed", genome="dm6")
+
+names(tenA_vsSec.snpBin@elementMetadata) <- c("ratio")
+names(SRR5860570_vsSec.snpBin@elementMetadata) <- c("ratio")
+#names(SucSec_vsSec.snpBin@elementMetadata) <- c("ratio")
+
+tenA_vsSec.snpBin$ratio <- tenA_vsSec.snpBin$ratio/1000
+SRR5860570_vsSec.snpBin$ratio <- SRR5860570_vsSec.snpBin$ratio/1000
+#SucSec_vsSec.snpBin$ratio <- SucSec_vsSec.snpBin$ratio/1000
+
+tenA_vsSec.snpBin$comp <- as.factor("SEC")
+SRR5860570_vsSec.snpBin$comp <- as.factor("SEC")
+#SucSec_vsSec.snpBin$comp <- as.factor("SEC")
+
+tenA_vsSec.snpBin$sample <- as.factor("10A")
+SRR5860570_vsSec.snpBin$sample <- as.factor("SRR5860570")
+#SucSec_vsSec.snpBin$sample <- as.factor("SucSec")
+
+tenA_vsSec.snpBin$grouping <- as.factor("snp_bin")
+SRR5860570_vsSec.snpBin$grouping <- as.factor("snp_bin")
+#SucSec_vsSec.snpBin$grouping <- as.factor("snp_bin")
+
+
+
+tenA_vsSec.genWin <-  lifted.10A.vsSec[,c("ratio","comp","sample")]
+#SucSec_vsSec.genWin <- lifted.SucSec.vsSec[,c("ratio","comp","sample")]
+SRR5860570_vsSec.genWin <- lifted.SRR5860570.vsSec[,c("ratio","comp","sample")]
+
+tenA_vsSec.genWin$grouping <- as.factor("genome_window")
+#SucSec_vsSec.genWin$grouping <- as.factor("genome_window") 
+SRR5860570_vsSec.genWin$grouping <- as.factor("genome_window")
+
+
+binning_strats <- c(SRR5860570_vsSec.genWin,SRR5860570_vsSec.snpBin,SRR5860570_vsSim.genWin,SRR5860570_vsSim.snpBin,tenA_vsSec.genWin,tenA_vsSec.snpBin,tenA_vsSim.genWin,tenA_vsSim.snpBin)
+
+```
+```{r echo=FALSE}
+binning_strats.chr2L <- binning_strats[ binning_strats@seqnames =='chr2L' ]
+```
+```{r echo=FALSE}
+
+binning_strats.chr2L.plt <- autoplot(binning_strats.chr2L, aes(y=ratio, color=sample, linetype=grouping), geom='line') + facet_grid(grouping ~ comp, scale="free")
+
+
+binning_strats.chr2L.plt
+
+
+autoplot(binning_strats.chr2L[binning_strats.chr2L$comp == "SEC"], aes(y=ratio, color=sample, linetype=grouping), geom='line') + facet_grid(sample ~ comp, scale="free")
+
+autoplot(binning_strats.chr2L[binning_strats.chr2L$comp == "SIM"], aes(y=ratio, color=sample, linetype=grouping), geom='line') + facet_grid(sample ~ comp, scale="free")
+
+
+
+png(filename = "figs/FigS5_chr2L_binningComparison.png", width = 1200, height=900)
+binning_strats.chr2L.plt
+dev.off()
+```
+
+
+
+## Ratio vs. Percent
+```{r echo=FALSE}
+# tenA_percentSim <- import.bedGraph("analysis_out/10A_and_SynthSec_and_SynthSim.bwa.lift2dm6.percent_droSim1_vs_droSec1.standard.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+# names(tenA_percentSim@elementMetadata) <- c('count', 'total')
+# tenA_percentSim$percent <- 100*tenA_percentSim$count/tenA_percentSim$total
+# tenA_percentSim$sample <- as.factor("10A")
+# tenA_percentSim$treatment <- as.factor("selection")
+# 
+# SRR5860570_percentSim <- import.bedGraph("analysis_out/SRR5860570_and_SynthSec_and_SynthSim.bwa.lift2dm6.percent_droSim1_vs_droSec1.standard.dm6_w100000_s100000.windowCounts.bed", genome="dm6")
+# names(SRR5860570_percentSim@elementMetadata) <- c('count', 'total')
+# SRR5860570_percentSim$percent <- 100*SRR5860570_percentSim$count/SRR5860570_percentSim$total
+# SRR5860570_percentSim$sample <- as.factor("SRR5860570")
+# SRR5860570_percentSim$treatment <- as.factor("control")
+# 
+# all_percentSim_examples <- c(SRR5860570_percentSim, tenA_percentSim)
+# 
+# all_percentSim_examples.chr2L <- all_percentSim_examples[all_percentSim_examples@seqnames =='chr2L' ]
+
+```
+```{r echo=FALSE}
+# autoplot(all_percentSim_examples.chr2L, aes(y=percent, group=sample, color=treatment), geom='line') + labs(y="percent Simulans")
+
+```
+
+
+## Figures available on request 
+* no major coverage effects near the artefact
+* no obvious bias from mapping specificity (check source from sythetic reads)
+* no obvious bias from repetitive regions
+* window sizes and slide rates
+* null-identity test (compare a line to itself)
+
+
+
+# References
+
+```{r }
+citation("tidyverse")
+citation("rtracklayer")
+citation("ggbio")
+citation("metap")
+citation("viridis")
+```
+
+
+
+
+
+
+
+
+
