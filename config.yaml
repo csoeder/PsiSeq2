@@ -4,7 +4,6 @@ data_sets:
       pedigree: droSec1
       treatment: parent
       type: empirical
-      group: PsiSeq2
       path: FASTQs/parent/SucSec/
     - name: SucSim
       paired: False
@@ -30,18 +29,31 @@ data_sets:
       treatment: parent
       type: synthetic
       path: FASTQs/parent/SynthSecFB/
+    - name: SynthSecDM
+      paired: True
+      pedigree: dsecDM
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/SynthSecDM/
     - name: SynthSimFB
       paired: True
       pedigree: dsimr2
       treatment: parent
       type: synthetic
       path: FASTQs/parent/SynthSimFB/
+    - name: SynthSimDM
+      paired: True
+      pedigree: dsimDM
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/SynthSimDM/
     - name: SRR869587
       paired: True
       pedigree: droSec1
       treatment: parent
       type: empirical
       path: FASTQs/parent/SRR869587/
+      group: PsiSeq2
     - name: SRR6426002
       paired: True
       pedigree: droSec1
@@ -56,12 +68,21 @@ data_sets:
       type: empirical
       group: PsiSeq2
       path: FASTQs/parent/SRR5860570/
+    - name: SRR869580
+      paired: True
+      pedigree: droSim1
+      treatment: parent
+      type: empirical
+      group: other      
+      path: FASTQs/parent/SRR869580/
     - name: SRR303333
       paired: False
       pedigree: offspring
       treatment: selection
       type: empirical
       path: FASTQs/selection/SRR303333/
+      group: PsiSeq2
+      SRA: SRR303333
     - name: 10A
       paired: True
       pedigree: offspring
@@ -75,30 +96,35 @@ data_sets:
       treatment: selection
       type: empirical
       path: FASTQs/selection/10B/
+      group: PsiSeq2
     - name: 13A
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
       path: FASTQs/selection/13A/
+      group: PsiSeq2
     - name: 13B
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
       path: FASTQs/selection/13B/
+      group: PsiSeq2
     - name: 17A
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
       path: FASTQs/selection/17A/
+      group: PsiSeq2
     - name: 17B
       paired: True
       pedigree: offspring
       treatment: selection
       type: empirical
       path: FASTQs/selection/17B/
+      group: PsiSeq2
     - name: PARC1
       paired: True
       pedigree: dm6
@@ -120,6 +146,28 @@ data_sets:
       type: control
       group: nicole
       path: FASTQs/control/REC7/
+#########
+    - name: melOne
+      paired: True
+      pedigree: dm6_v1
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/melOne/
+    - name: melTwo
+      paired: True
+      pedigree: dm6_v2
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/melTwo/
+    - name: melOff
+      paired: True
+      pedigree: dm6_v3
+      treatment: selection
+      type: synthetic
+      path: FASTQs/selection/melOff/
+#########
+
+
 
 reference_genomes:
     - name: droSim1
@@ -138,10 +186,32 @@ reference_genomes:
       species: drosophila sechellia
       path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/droSec1.fa
       fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/droSec1.fa.fai
+    - name: dsecDM
+      species: drosophila sechellia
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/Dsec.pass.minimap2.racon.x3.pilon.x3.fasta
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/Dsec.pass.minimap2.racon.x3.pilon.x3.fasta.fai
+    - name: dsimDM
+      species: drosophila simulans
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/Dsim.pass.minimap2.racon.x3.pilon.x3.fasta
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/Dsim.pass.minimap2.racon.x3.pilon.x3.fasta.fai
     - name: dm6
       species: drosophila melanogaster
       path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_melanogaster/dm6.fa
       fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_melanogaster/dm6.fa.fai
+##### simulated genomes
+    - name: dm6_v1
+      species: drosophila melanogaster
+      path: simulation/data/dm6.chr2L.mutated451.fa
+      fai: simulation/data/dm6.chr2L.mutated451.fa.fai
+    - name: dm6_v2
+      species: drosophila melanogaster
+      path: simulation/data/dm6.chr2L.mutated1984.fa
+      fai: simulation/data/dm6.chr2L.mutated1984.fa.fai
+    - name: dm6_v3
+      species: drosophila melanogaster
+      path: simulation/data/hybrid.fa
+      fai: simulation/data/hybrid.fa.fai
+
 
 lift_genomes:
       dm6:
