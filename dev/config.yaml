@@ -1,0 +1,506 @@
+data_sets:
+    - name: SynthSec
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/SynthSec/
+    - name: SynthSim
+      paired: True
+      pedigree: droSim1
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/SynthSim/
+    - name: SynthSecFB
+      paired: True
+      pedigree: dsecr1
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/SynthSecFB/
+    - name: SynthSecDM
+      paired: True
+      pedigree: dsecDM
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/SynthSecDM/
+    - name: SynthSimFB
+      paired: True
+      pedigree: dsimr2
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/SynthSimFB/
+    - name: SynthSimDM
+      paired: True
+      pedigree: dsimDM
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/SynthSimDM/
+    - name: SRR869587
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: empirical
+      path: FASTQs/parent/SRR869587/
+      group: PsiSeq2
+    - name: SRR5860672
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: empirical
+      path: FASTQs/parent/SRR5860672/
+      group: PsiSeq2
+    - name: SRR6426002
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: empirical
+      group: PsiSeq2
+      path: FASTQs/parent/SRR6426002/
+    - name: SRR5860570
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: empirical
+      group: PsiSeq2
+      path: FASTQs/parent/SRR5860570/
+    - name: SRR6399453
+      paired: True
+      pedigree: droSec1
+      treatment: parent
+      type: empirical
+      group: PsiSeq2
+      path: FASTQs/parent/SRR6399453/
+    - name: SRR869580
+      paired: True
+      pedigree: droSim1
+      treatment: parent
+      type: empirical
+      group: PsiSeq2      
+      path: FASTQs/parent/SRR869580/
+    - name: SRR303333
+      paired: False
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+      path: FASTQs/selection/SRR303333/
+      group: PsiSeq2
+      SRA: SRR303333
+    - name: 10A
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+      group: PsiSeq2
+      path: FASTQs/selection/10A/
+    - name: 10B
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+      path: FASTQs/selection/10B/
+      group: PsiSeq2
+    - name: 13A
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+      path: FASTQs/selection/13A/
+      group: PsiSeq2
+    - name: 13B
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+      path: FASTQs/selection/13B/
+      group: PsiSeq2
+    - name: 17A
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+      path: FASTQs/selection/17A/
+      group: PsiSeq2
+    - name: 17B
+      paired: True
+      pedigree: offspring
+      treatment: selection
+      type: empirical
+      path: FASTQs/selection/17B/
+      group: PsiSeq2
+    - name: M1
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_1/
+      group: PsiSeq2
+    - name: M2
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_10/
+      group: PsiSeq2
+    - name: M3
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_11/
+      group: PsiSeq2
+    - name: M4
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_12/
+      group: PsiSeq2
+    - name: M5
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_13/
+      group: PsiSeq2
+    - name: M6
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_14/
+      group: PsiSeq2
+    - name: M7
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_15/
+      group: PsiSeq2
+    - name: M8
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_16/
+      group: PsiSeq2
+    - name: M9
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_17/
+      group: PsiSeq2
+    - name: M10
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_18/
+      group: PsiSeq2
+    - name: M11
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_19/
+      group: PsiSeq2
+    - name: M12
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_2/
+      group: PsiSeq2
+    - name: M13
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_20/
+      group: PsiSeq2
+    - name: M14
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_21/
+      group: PsiSeq2
+    - name: M15
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_22/
+      group: PsiSeq2
+    - name: M16
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_23/
+      group: PsiSeq2
+    - name: M17
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_3/
+      group: PsiSeq2
+    - name: M18
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_4/
+      group: PsiSeq2
+    - name: M19
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_5/
+      group: PsiSeq2
+    - name: M20
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_6/
+      group: PsiSeq2
+    - name: M21
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_7/
+      group: PsiSeq2
+    - name: M22
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_8/
+      group: PsiSeq2
+    - name: M23
+      paired: True
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/SECH_9/
+      group: PsiSeq2
+    - name: M24
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisNoni60/
+      group: PsiSeq2
+    - name: M25
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/Denis124/
+      group: PsiSeq2
+    - name: M26
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/Denis135_5/
+      group: PsiSeq2
+    - name: M27
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/Denis7_2/
+      group: PsiSeq2
+    - name: M28
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/Denis7_8_11/
+      group: PsiSeq2
+    - name: M29
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisAMT_22/
+      group: PsiSeq2
+    - name: M30
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisAT3/
+      group: PsiSeq2
+    - name: M31
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisDNJ6/
+      group: PsiSeq2
+    - name: M32
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisJT1_13/
+      group: PsiSeq2
+    - name: M33
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisMCL_15/
+      group: PsiSeq2
+    - name: M34
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisMCL_18/
+      group: PsiSeq2
+    - name: M35
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisNF100/
+      group: PsiSeq2
+    - name: M36
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisNF123_1_3/
+      group: PsiSeq2
+    - name: M37
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisNF13_2/
+      group: PsiSeq2
+    - name: M38
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisNF134/
+      group: PsiSeq2
+    - name: M39
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisNF13/
+      group: PsiSeq2
+    - name: M40
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisNF155_14/
+      group: PsiSeq2
+    - name: M41
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisNF66_20/
+      group: PsiSeq2
+    - name: M42
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisNoni101/
+      group: PsiSeq2
+    - name: M43
+      paired: False
+      pedigree: droSec1
+      treatment: popSec
+      type: empirical
+      path: FASTQs/popSec/DenisNoni10/
+      group: PsiSeq2
+
+
+#########
+    - name: melOne
+      paired: True
+      pedigree: dm6_v1
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/melOne/
+    - name: melTwo
+      paired: True
+      pedigree: dm6_v2
+      treatment: parent
+      type: synthetic
+      path: FASTQs/parent/melTwo/
+    - name: melOff
+      paired: True
+      pedigree: dm6_v3
+      treatment: selection
+      type: synthetic
+      path: FASTQs/selection/melOff/
+#########
+
+
+
+reference_genomes:
+    - name: droSim1
+      species: drosophila simulans
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/droSim1.fa
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/droSim1.fa.fai
+    - name: dsimr2
+      species: drosophila simulans
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/dsim-all-chromosome-r2.02.fasta
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/dsim-all-chromosome-r2.02.fasta.fai
+    - name: dsecr1
+      species: drosophila sechellia
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/dsec-all-chromosome-r1.3.fasta
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/dsec-all-chromosome-r1.3.fasta.fai
+    - name: droSec1
+      species: drosophila sechellia
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/droSec1.fa
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/droSec1.fa.fai
+    - name: dsecDM
+      species: drosophila sechellia
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/Dsec.pass.minimap2.racon.x3.pilon.x3.fasta
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_sechellia/Dsec.pass.minimap2.racon.x3.pilon.x3.fasta.fai
+    - name: dsimDM
+      species: drosophila simulans
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/Dsim.pass.minimap2.racon.x3.pilon.x3.fasta
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_simulans/Dsim.pass.minimap2.racon.x3.pilon.x3.fasta.fai
+    - name: dm6
+      species: drosophila melanogaster
+      path: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_melanogaster/dm6.fa
+      fai: /proj/cdjones_lab/Genomics_Data_Commons/genomes/drosophila_melanogaster/dm6.fa.fai
+##### simulated genomes
+    - name: dm6_v1
+      species: drosophila melanogaster
+      path: simulation/data/dm6.chr2L.mutated451.fa
+      fai: simulation/data/dm6.chr2L.mutated451.fa.fai
+    - name: dm6_v2
+      species: drosophila melanogaster
+      path: simulation/data/dm6.chr2L.mutated1984.fa
+      fai: simulation/data/dm6.chr2L.mutated1984.fa.fai
+    - name: dm6_v3
+      species: drosophila melanogaster
+      path: simulation/data/hybrid.fa
+      fai: simulation/data/hybrid.fa.fai
+
+
+lift_genomes:
+      dm6:
+            droSec1: /proj/cdjones_lab/Genomics_Data_Commons/genomes/LiftOver/droSec1ToDm6.over.chain
+            droSim1: /proj/cdjones_lab/Genomics_Data_Commons/genomes/LiftOver/droSim1ToDm6.over.chain
+
+cwd:  /proj/cdjones_lab/csoeder/PsiSeq2
+
